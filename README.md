@@ -1,0 +1,1 @@
+# picsart-figma-plugin
