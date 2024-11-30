@@ -1,0 +1,62 @@
+@use '@styles/variables' as *;
+@use '@styles/colors' as *;
+
+.selector {
+  height: 32px;
+  border-radius: 8px;
+  color: #9E9E9E;
+  background-color: #FFFFFF;
+  border: 1px solid #CBCBCB;
+  cursor: pointer;
+  font-size: 10px;
+  position: relative;
+  
+  &:focus-within {
+    border-color: #888;
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25); 
+  }
+
+  .label {
+    padding: 10px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .icon {
+  
+    box-sizing: border-box;
+    font-size: 15px;
+    font-family: 'Material Icons';
+  }
+
+  .options {
+    margin-top: 5px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    padding: 5px 0;
+    background-color: #fff;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+    z-index: 1;
+  }
+
+  .option {
+    padding: 8px 10px;
+    cursor: pointer;
+    font-size: 10px;
+
+    &:hover {
+      background-color: #f0f0f0;
+    }
+    
+    &:focus,
+    &:focus-visible {
+      outline: none;
+      background-color: #e0e0e0;
+    }
+  }
+}

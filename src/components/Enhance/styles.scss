@@ -1,0 +1,34 @@
+@use '@styles/variables' as *;
+@use '@styles/colors' as *;
+
+.upscale-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+
+    .text {
+        font-size: 10px;
+        line-height: 14px;
+        color: #F8F8F8;
+        margin: 0;
+    }
+
+    .keyset-btn {
+        padding: 6px 12px;
+        height: 32px;
+        width: 100%;
+        font-size: 12px;
+        border: 1px solid #CBCBCB ;
+        border-radius: 32px;
+        background: #F8F8F8 ;
+        color: #C209C1;
+        transition: background 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+        cursor: pointer;
+    
+        &:hover {
+        border: 1px solid $color-action-btns-hovered;
+        background: #F3EBF3;
+        color: $color-action-btns-selected-text; 
+        }
+    }
+}

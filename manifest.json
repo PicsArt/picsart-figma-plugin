@@ -1,0 +1,53 @@
+{
+  "name": "Picsart-Figma-Plugin-final",
+  "id": "1427615667628421674",
+  "api": "1.0.0",
+  "main": "dist/code.js",  
+  "ui": "dist/ui.html",      
+  "capabilities": [],
+  "enableProposedApi": false,
+  "documentAccess": "dynamic-page",
+  "editorType": [
+    "figma"
+  ],
+  "permissions": [],
+  "networkAccess": {
+    "allowedDomains": [
+      "https://fonts.googleapis.com",
+      "https://project-files.picsart.com",
+      "https://fonts.gstatic.com",
+      "https://api.picsart.io",
+      "https://picsart.io",
+      "https://cdn.picsart.io"
+    ]
+  }, 
+  "menu": [
+    {
+      "name": "Remove Background",
+      "command": "REMOVE-BACKGROUND"
+    },
+    {
+      "separator": true
+    },
+    {
+      "name": "Upscale ",
+      "command": "UPSCALE"
+    },
+    {
+      "separator": true
+    },
+    {
+      "name": "Account",
+      "command": "ACCOUNT"
+    },
+    {
+      "separator": true
+    },
+    {
+      "name": "Support",
+      "command": "SUPPORT"
+    }
+  
+  ]
+}
+
