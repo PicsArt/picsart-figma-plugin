@@ -1,5 +1,5 @@
 {
-  "name": "Picsart-Figma-Plugin-final",
+  "name": "Figma Plugin",
   "id": "1427615667628421674",
   "api": "1.0.0",
   "main": "dist/code.js",  
