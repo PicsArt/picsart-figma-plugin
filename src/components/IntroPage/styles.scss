@@ -1,0 +1,95 @@
+@use '@styles/variables' as *;
+@use '@styles/colors' as *;
+
+
+.intro-page-container {
+    display: flex;
+    flex-direction: column;
+    gap: $gap-medium;
+    width: 100%;
+    overflow: hidden;
+
+    .text-container {
+        gap: 4px;
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        
+        .intro-text {
+            margin: 0;
+            font-size: $font-size-sm;
+            color: $color-gray-text;
+            line-height: 14px;
+        }
+        .intro-href {
+            text-decoration: none;
+            color: $color-href-text;
+        }
+    }
+    
+    
+    .input-btn-container {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        width: 100%;
+
+        .input-block {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            width: 100%;
+        
+            .keyset-input {
+                font-size: 10px;
+                padding: $padding-main;
+                height: 32px;
+                width: 100%;
+                border: 1px solid #CBCBCB;
+                border-radius: 8px;
+                background: #F8F8F8 !important;
+                color: #808080 !important;
+                transition: background 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+                cursor: pointer;
+                
+                &:hover {
+                  border: 1px solid $color-main-text;
+                  box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.1);
+                }
+              
+                &:focus {
+                  border: 1px solid $color-main-text;
+                  box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.2);
+                  outline: none;
+                }
+            }
+
+            .keyset-btn {
+                padding: 6px 12px;
+                height: 32px;
+                width: 100%;
+                font-size: 12px;
+                border: 1px solid #CBCBCB ;
+                border-radius: 32px;
+                background: #F8F8F8 ;
+                color: #C209C1 ;
+                transition: background 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+                cursor: pointer;
+            
+                &:hover {
+                border: 1px solid $color-action-btns-hovered;
+                background: #F3EBF3;
+                color: $color-action-btns-selected-text; 
+                }
+            }
+        }
+
+        .key-learn-more {
+            font-size: $font-size-xs;
+            text-decoration: none;
+            font-family: $font-gilroy-semi-bold;
+            color: $color-href-light-text;
+            margin-bottom: 8px;
+        }
+    }
+}

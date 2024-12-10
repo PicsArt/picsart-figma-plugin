@@ -1,0 +1,92 @@
+@use '@styles/variables' as *;
+@use '@styles/colors' as *;
+
+* {
+  font-weight: 400;
+}
+
+body {
+  padding: $padding-main;
+  box-sizing: border-box;
+  border-radius: $border-radius-main;
+  background-color: #303030;
+  margin: 0;
+  font-family: 'Montserrat', sans-serif; 
+  font-weight: 400;
+  height: 100vh;
+}
+
+.flex-row {
+  display: flex;
+  flex-direction: row;
+}
+
+.flex-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.sp-betwen {
+  justify-content: space-between;
+}
+
+.sp-around {
+  justify-content: space-around;
+}
+
+.g-5 {
+  gap: $gap-small;
+}
+
+.g-10 {
+  gap: $gap-medium;
+}
+
+.g-15 {
+  gap: $gap-large;
+}
+
+.margin-top-minus-100 {
+  margin-top: -100px;
+}
+
+.error-text {
+  font-size: $font-size-xs;
+  color: $color-error-text;
+  margin: -10px 6px;
+}
+
+.warning-text {
+  font-size: $font-size-sm;
+  color: $color-warning-text;
+  margin: -6px 6px;
+}
+
+.success-text {
+  font-size: $font-size-xs;
+  color: $color-success-text;
+  margin: -6px 6px;
+}
+
+.disabled-btn {
+  color: $color-btn-disabled-text !important;
+  border: 1px solid $color-btn-disabled-border !important;
+  background: $color-btn-disabled-background !important;
+}
+
+.disabled-picker {
+  color: $color-picker-disabled-text !important;
+  border: 1px solid $color-picker-disabled-border !important;
+  background: $color-picker-disabled-background !important;
+}
+
+.disabled-selector {
+  color: $color-selector-disabled-text !important;
+  border: 1px solid $color-selector-disabled-border !important;
+  background: $color-selector-disabled-background !important;
+} 
+
+.error-border {
+  border: 1px solid $color-error-border !important;
+}
+
