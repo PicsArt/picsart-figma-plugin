@@ -32,7 +32,6 @@
         flex-direction: column;
         gap: $gap-large;
         justify-content: center;
-        align-items: center;
     }
 
     .submit  {
@@ -50,30 +49,107 @@
     }
 
     .keyset-input {
-        height: 44px;
-        width: 100%;
-        max-width: 232px;
-        border: 1px solid $color-buy-more-credits;
-        border-radius: $border-radius-main;
-        font-size: $font-size-md;
+        font-size: 10px;
         padding: $padding-main;
-        transition: border-color 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease;
+        height: 32px;
+        width: 100%;
+        border: 1px solid #CBCBCB;
+        border-radius: 8px;
+        background: #F8F8F8 !important;
+        color: #808080 !important;
+        transition: background 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+        cursor: pointer;
         
         &:hover {
-            background-color: $color-disbaled-background;
-            box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.1);
+          border: 1px solid $color-main-text;
+          box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.1);
         }
-    
+      
         &:focus {
-            background-color: $color-disbaled-background;
-            box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.1);
-            outline: none;
+          border: 1px solid $color-main-text;
+          box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.2);
+          outline: none;
         }
     }
 
-    .get-key {
-        color: $color-buy-more-credits;
-        font-family: $font-gilroy-medium;
-        text-decoration: none;
+    .keyset-btn {
+        padding: 6px 12px;
+        height: 32px;
+        width: 100%;
+        font-size: 12px;
+        border: 1px solid #CBCBCB ;
+        border-radius: 32px;
+        background: #F8F8F8 ;
+        color: #C209C1 ;
+        transition: background 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+        cursor: pointer;
+    
+        &:hover {
+            border: 1px solid $color-action-btns-hovered;
+            background: #F3EBF3;
+            color: $color-action-btns-selected-text; 
+        }
     }
+
+    .key-container {
+        display: flex;
+        justify-content: 'flex-start';
+    }
+
+    .get-key {
+        text-decoration: none;
+        font-family: $font-gilroy-semi-bold;
+        color: $color-href-light-text;
+        font-size: $font-size-xs;
+    }
+
+    // .keyset-input {
+    //     height: 44px;
+    //     width: 100%;
+    //     max-width: 232px;
+    //     border: 1px solid $color-buy-more-credits;
+    //     border-radius: $border-radius-main;
+    //     font-size: $font-size-md;
+    //     padding: $padding-main;
+    //     transition: border-color 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease;
+        
+    //     &:hover {
+    //         background-color: $color-disbaled-background;
+    //         box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.1);
+    //     }
+    
+    //     &:focus {
+    //         background-color: $color-disbaled-background;
+    //         box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.1);
+    //         outline: none;
+    //     }
+    // .keyset-input {
+    //     font-size: 10px;
+    //     padding: $padding-main;
+    //     height: 32px;
+    //     width: 100%;
+    //     border: 1px solid #CBCBCB;
+    //     border-radius: 8px;
+    //     background: #F8F8F8 !important;
+    //     color: #808080 !important;
+    //     transition: background 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+    //     cursor: pointer;
+        
+    //     &:hover {
+    //       border: 1px solid $color-main-text;
+    //       box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.1);
+    //     }
+      
+    //     &:focus {
+    //       border: 1px solid $color-main-text;
+    //       box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.2);
+    //       outline: none;
+    //     }
+    // }
+
+    // .get-key {
+    //     color: $color-buy-more-credits;
+    //     font-family: $font-gilroy-medium;
+    //     text-decoration: none;
+    // }
 }

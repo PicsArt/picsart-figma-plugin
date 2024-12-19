@@ -36,8 +36,10 @@ const ChangeAPIkey : React.FC = () => {
         <div className="input-container">
             <input value={value} onChange={handleInputChange} placeholder="API Key" type="text" name="key" className={`keyset-input ${error ? "error-border" : "" }`} />
             { error && <span className="error-text">{ error }</span>}
-            <button onClick={checkKey} className={`submit ${!value ? "disabled-btn" : ""}`}> Submit </button>
-            <a onClick={handlehrefClick} className="get-key" href="#">Get your Picsart API Key</a>
+            <button onClick={checkKey} className={`keyset-btn ${!value ? "disabled-btn" : ""}`}> Submit </button>
+            <div className="key-container">
+              <a onClick={handlehrefClick} className="get-key" href="#">Get your Picsart API Key</a>
+            </div>
         </div>
     </div>
   )
