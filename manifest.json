@@ -1,6 +1,6 @@
 {
-  "name": "Figma Plugin",
-  "id": "1427615667628421674",
+  "name": "Picsart Background Remover and Image Enhancer",
+  "id": "1448229969327565675",
   "api": "1.0.1",
   "main": "dist/code.js",  
   "ui": "dist/ui.html",      
@@ -30,7 +30,7 @@
       "separator": true
     },
     {
-      "name": "Upscale ",
+      "name": "Upscale",
       "command": "UPSCALE"
     },
     {
