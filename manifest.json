@@ -1,13 +1,7 @@
 {
-<<<<<<< HEAD
-  "name": "Figma Plugin",
-  "id": "1427615667628421674",
-  "api": "1.0.0",
-=======
   "name": "Picsart Background Remover and Image Enhancer",
   "id": "1448229969327565675",
-  "api": "1.0.1",
->>>>>>> e142921af88f190d22959760ffdbd570a9e8cdbb
+  "api": "1.0.0",
   "main": "dist/code.js",  
   "ui": "dist/ui.html",      
   "capabilities": [],
