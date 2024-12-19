@@ -46,7 +46,6 @@ const App = () => {
 
   useEffect(() => {
     const messageHandler = ({ data: { pluginMessage } }: MessageEvent) => {
-      console.log(pluginMessage);
       
       if (!pluginMessage) return;
       const { type, api_key, buffer, command } = pluginMessage;

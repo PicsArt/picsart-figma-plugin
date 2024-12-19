@@ -1,7 +1,7 @@
 {
   "name": "Picsart Background Remover and Image Enhancer",
   "id": "1448229969327565675",
-  "api": "1.0.0",
+  "api": "1.0.1",
   "main": "dist/code.js",  
   "ui": "dist/ui.html",      
   "capabilities": [],
