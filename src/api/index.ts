@@ -1,5 +1,6 @@
 import { TOKEN_ERR, BALANACE, HEADERAPI, PICSARTURL, UPSCALE,  KEY_WRONG_ERR, REMOVEBG } from "@constants/index";
 import getImageBinary from "@utils/imageprocessor";
+import { customFetch } from "./customFetch";
 
 interface BalanceResponse {
     message?: string;
@@ -17,7 +18,7 @@ export const sendMessageToSandBox = (success: boolean, msg: string | Uint8Array,
 
 export const getBalance = async (key: string) : Promise<GetBalanceReturnType> => {
     try {
-        let response = await fetch(PICSARTURL + BALANACE, { headers: { [HEADERAPI] : key}});
+        let response = await customFetch(PICSARTURL + BALANACE, { headers: { [HEADERAPI] : key }});
         const res : BalanceResponse = await response.json();
 
         if (res.message !== TOKEN_ERR) {
@@ -47,7 +48,7 @@ export const removeBackground = async (imageBytes: Uint8Array, key: string) => {
         formData.append("size", "auto");
         formData.append("image", imageBinary);
 
-        const response = await fetch(PICSARTURL + REMOVEBG, {
+        const response = await customFetch(PICSARTURL + REMOVEBG, {
             method: "POST",
             headers: { [HEADERAPI]: key },
             body: formData,
@@ -58,7 +59,7 @@ export const removeBackground = async (imageBytes: Uint8Array, key: string) => {
             return { success: false, msg: TOKEN_ERR};
         }
 
-        const imageResponse = await fetch(res.data.url);
+        const imageResponse = await customFetch(res.data.url);
         const blob = await imageResponse.blob();
 
         const arrayBuffer = await blob.arrayBuffer();
@@ -81,7 +82,7 @@ export const enhanceImage = async (imageBytes: Uint8Array, key: string, scaleFac
         formData.append("image", imageBinary);
         formData.append('upscale_factor', scaleFactor.toString());
 
-        const response = await fetch(PICSARTURL + UPSCALE, {
+        const response = await customFetch(PICSARTURL + UPSCALE, {
             method: "POST",
             headers: { [HEADERAPI]: key },
             body: formData,
@@ -93,7 +94,7 @@ export const enhanceImage = async (imageBytes: Uint8Array, key: string, scaleFac
             return { success: false, msg: TOKEN_ERR };
         }
 
-        const imageResponse = await fetch(res.data.url);
+        const imageResponse = await customFetch(res.data.url);
         const blob = await imageResponse.blob();
 
         const arrayBuffer = await blob.arrayBuffer();
