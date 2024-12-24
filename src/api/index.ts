@@ -59,7 +59,7 @@ export const removeBackground = async (imageBytes: Uint8Array, key: string) => {
             return { success: false, msg: TOKEN_ERR};
         }
 
-        const imageResponse = await customFetch(res.data.url);
+        const imageResponse = await fetch(res.data.url);
         const blob = await imageResponse.blob();
 
         const arrayBuffer = await blob.arrayBuffer();
@@ -94,7 +94,7 @@ export const enhanceImage = async (imageBytes: Uint8Array, key: string, scaleFac
             return { success: false, msg: TOKEN_ERR };
         }
 
-        const imageResponse = await customFetch(res.data.url);
+        const imageResponse = await fetch(res.data.url);
         const blob = await imageResponse.blob();
 
         const arrayBuffer = await blob.arrayBuffer();
