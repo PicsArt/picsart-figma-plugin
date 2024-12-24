@@ -3,14 +3,11 @@ type FetchProps = RequestInit & {
 }
 
 export const customFetch = async (url : string, options? : FetchProps) : Promise<Response> => {
-    const defaultHeaders = {
-        // 'X-Picsart-Plugin': 'Figma',
-    };
+    const defaultHeaders = {};
 
     let updatedOptions: FetchProps = {
         ...(options || {}), 
         headers: { ...(options?.headers || {}), ...defaultHeaders },
     };
-    console.log(url, updatedOptions);
     return await fetch(url, updatedOptions);
 }
