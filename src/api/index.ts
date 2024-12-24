@@ -108,7 +108,6 @@ export const enhanceImage = async (imageBytes: Uint8Array, key: string, scaleFac
     }
 };
 
-
 export default {
     getBalance,
     sendMessageToSandBox,
