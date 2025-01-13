@@ -13,6 +13,6 @@ export const customFetch = async (url : string, options? : FetchProps) : Promise
         ...(options || {}), 
         headers: { ...(options?.headers || {}), ...defaultHeaders },
     };
-    console.log(updatedOptions);
+    
     return await fetch(url, updatedOptions);
 }
