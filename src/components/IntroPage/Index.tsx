@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { getBalance, sendMessageToSandBox } from "@api/index";
 import './styles.scss';
+import { CONSOLE, PICSART_IO } from "@constants/url";
 
 const IntroPage: React.FC = () => {
     const [value, setValue ] = useState<string>("");
@@ -43,8 +44,8 @@ const IntroPage: React.FC = () => {
     return (
        <div className="intro-page-container">
         <div className="text-container">
-            <p className="intro-text">1. To use the plugin, go to <a className="intro-href" href="https://picsart.io/" target="_blank"> Picsart.io</a> and create a free account.  </p>
-            <p className="intro-text">2. Go to the <a className="intro-href" href="https://console.picsart.io" target="_blank" >Console </a>, copy and past your API key here. </p>
+            <p className="intro-text">1. To use the plugin, go to <a className="intro-href" href={PICSART_IO} target="_blank"> Picsart.io</a> and create a free account.  </p>
+            <p className="intro-text">2. Go to the <a className="intro-href" href={CONSOLE} target="_blank" >Console </a>, copy and past your API key here. </p>
         </div>
         <div className="input-btn-container">
             <div className="input-block">
