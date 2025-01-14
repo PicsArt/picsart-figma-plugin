@@ -51,9 +51,10 @@ body {
 }
 
 .error-text {
-  font-size: $font-size-xs;
+  font-size: $font-size-sm;
   color: $color-error-text;
   margin: -10px 6px;
+  text-align: center;
 }
 
 .warning-text {
