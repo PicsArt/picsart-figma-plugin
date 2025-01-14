@@ -1,5 +1,5 @@
 {
-  "name": "Picsart Background Remover and Image Enhancer",
+  "name": "Picsart BG Remover and Image Enhancer",
   "id": "1448229969327565675",
   "api": "1.0.0",
   "main": "dist/code.js",  
@@ -30,7 +30,7 @@
       "separator": true
     },
     {
-      "name": "Upscale",
+      "name": "Enhance / Upscale",
       "command": "UPSCALE"
     },
     {
