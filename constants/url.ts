@@ -15,5 +15,5 @@ export const PRICING = "https://picsart.io/pricing/";
 export const PICSART_IO = "https://picsart.io/";
 
 // Console
-export const QUERY_PARAMS = "?source=figma&utm_medium=app&utm_campaign=plugins";
+export const QUERY_PARAMS = "?utm_source=figma&utm_medium=app&utm_campaign=plugins";
 export const CONSOLE = "https://console.picsart.io" + QUERY_PARAMS;
