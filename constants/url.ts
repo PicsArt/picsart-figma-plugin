@@ -11,7 +11,8 @@ export const DEVELOPER_GUIDELINES = "https://picsart.com/developer-guidelines/";
 export const PRIVACY_POLICY = "https://picsart.com/privacy-policy/";
 export const TRUST_CENTER = "https://picsart.io/trust/";
 export const HELP_CENTER = "https://support.picsart.com/hc/en-us";
-export const PRICING = "https://picsart.io/pricing/";
+export const PRICING = "https://console.picsart.io/dashboard/usage/";
+
 export const PICSART_IO = "https://picsart.io/";
 
 // Console
