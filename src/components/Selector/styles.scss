@@ -2,7 +2,8 @@
 @use '@styles/colors' as *;
 
 .selector {
-  height: 32px;
+  width: 64px;
+  height: 30px;
   border-radius: 8px;
   color: #9E9E9E;
   background-color: #FFFFFF;
@@ -17,6 +18,10 @@
   }
 
   .label {
+    font-family: "Inter";
+    font-weight: 500;
+    font-size: 11px;
+    letter-spacing: 0.16px;
     padding: 10px 16px;
     display: flex;
     justify-content: space-between;
@@ -24,7 +29,6 @@
   }
 
   .icon {
-  
     box-sizing: border-box;
     font-size: 15px;
     font-family: 'Material Icons';
@@ -47,7 +51,10 @@
   .option {
     padding: 8px 10px;
     cursor: pointer;
-    font-size: 10px;
+    font-family: "Inter";
+    font-weight: 500;
+    font-size: 11px;
+    letter-spacing: 0.16px;
 
     &:hover {
       background-color: #f0f0f0;

@@ -17,7 +17,7 @@
     "isolatedModules": true,
     "jsx": "react",
     "types": ["@figma/plugin-typings"],
-    "typeRoots": ["node_modules/@types", "./src/types"],
+    "typeRoots": ["node_modules/@types", "src/types"],
     "baseUrl": "./",
     "paths": {
       "@assets/*": ["assets/*"],
@@ -25,13 +25,16 @@
       "@controllers/*": ["controllers/*"],
       "@services/*": ["services/*"],
       "@constants/*": ["constants/*"],
+      "@ui_constants/*": ["src/ui_constants/*"],
       "@styles/*": ["src/styles/*"],
       "@utils/*": ["src/utils/*"],
+      "@hooks/*": ["src/hooks/*"],
       "@components/*": ["src/components/*"],
       "@api/*": ["src/api/*"],
       "@ui/*": ["src/components/ui/*"],
+      "@types/*": ["src/types/*"]
     }
   },
-  "include": ["src/**/*", "routes/CommandRouter.ts"],
+  "include": ["src/**/*", "src/types/global.d.ts", "routes/CommandRouter.ts"],
   "exclude": ["node_modules"]
 }

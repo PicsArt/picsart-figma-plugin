@@ -1,95 +1,219 @@
-@use '@styles/variables' as *;
-@use '@styles/colors' as *;
+@use "@styles/variables" as *;
+@use "@styles/colors" as *;
 
-
-.intro-page-container {
+.intro-page {
+  .container {
+    padding: 12px;
+    gap: $gap-large;
     display: flex;
     flex-direction: column;
-    gap: $gap-medium;
+  }
+}
+
+.figma-light {
+  .intro-page {
+    display: flex;
+    flex-direction: column;
+    gap: $gap-large;
     width: 100%;
     overflow: hidden;
+    background-color: rgba($color: #520be51a, $alpha: 0.1);
+    border-radius: 4px;
 
     .text-container {
-        gap: 4px;
-        display: flex;
-        flex-direction: column;
-        width: 100%;
-        
-        .intro-text {
-            margin: 0;
-            font-size: $font-size-sm;
-            color: $color-gray-text;
-            line-height: 14px;
-        }
-        .intro-href {
-            text-decoration: none;
-            color:  $color-href-light-text;
-        }
+      gap: $gap-large;
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+
+      .intro-text {
+        margin: 0;
+        color: $light-color-option-active;
+        font-family: "Inter";
+        font-weight: 500;
+        font-size: 11px;
+        letter-spacing: 0.16px;
+      }
+      .intro-href {
+        text-decoration: none;
+        color: $color-href-light-text;
+      }
     }
-    
-    
+
     .input-btn-container {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      width: 100%;
+
+      .input-block {
         display: flex;
         flex-direction: column;
-        gap: 20px;
+        gap: $gap-large;
         width: 100%;
 
-        .input-block {
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-            width: 100%;
-        
-            .keyset-input {
-                font-size: 10px;
-                padding: $padding-main;
-                height: 32px;
-                width: 100%;
-                border: 1px solid #CBCBCB;
-                border-radius: 8px;
-                background: #F8F8F8 !important;
-                color: #808080 !important;
-                transition: background 0.3s ease, border-color 0.3s ease, color 0.3s ease;
-                cursor: pointer;
-                
-                &:hover {
-                  border: 1px solid $color-main-text;
-                  box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.1);
-                }
-              
-                &:focus {
-                  border: 1px solid $color-main-text;
-                  box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.2);
-                  outline: none;
-                }
-            }
+        .keyset-input {
+          color: $dark-color-option-active;
+          font-family: "Inter";
+          font-weight: 500;
+          font-size: 11px;
+          letter-spacing: 0.16px;
+          padding: $padding-main;
+          height: 32px;
+          width: 100%;
+          border: 1px solid #cbcbcb;
+          border-radius: 8px;
+          color: #333333 !important;
+          transition: background 0.3s ease, border-color 0.3s ease,
+            color 0.3s ease;
+          cursor: pointer;
 
-            .keyset-btn {
-                padding: 6px 12px;
-                height: 32px;
-                width: 100%;
-                font-size: 12px;
-                border: 1px solid #CBCBCB ;
-                border-radius: 32px;
-                background: #F8F8F8 ;
-                color: #C209C1 ;
-                transition: background 0.3s ease, border-color 0.3s ease, color 0.3s ease;
-                cursor: pointer;
-            
-                &:hover {
-                border: 1px solid $color-action-btns-hovered;
-                background: #F3EBF3;
-                color: $color-action-btns-selected-text; 
-                }
-            }
+          &:hover {
+            border: 1px solid #6929d1;
+            box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.1);
+          }
+
+          &:focus {
+            border: 1px solid #6929d1;
+            box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.2);
+            outline: none;
+          }
         }
 
-        .key-learn-more {
-            font-size: $font-size-xs;
-            text-decoration: none;
-            font-family: $font-gilroy-semi-bold;
-            color: $color-href-light-text;
-            margin-bottom: 8px;
+        .keyset-btn {
+          padding: 6px 12px;
+          height: 32px;
+          width: 100%;
+          font-size: 12px;
+          border: 1px solid #6929d1;
+          border-radius: 32px;
+          background: #6929d1;
+          color: #ffffff;
+          transition: background 0.3s ease, border-color 0.3s ease,
+            color 0.3s ease;
+          cursor: pointer;
+
+          &:hover {
+            border: 1px solid #6929d1;
+            background: #f3ebf3;
+            color: #6929d1;
+          }
         }
+      }
+
+      .key-learn-more {
+        font-family: "Inter";
+        font-weight: 500;
+        font-size: 11px;
+        letter-spacing: 0.16px;
+        color: #e543aa;
+        text-decoration: none;
+      }
     }
+  }
+}
+
+.figma-dark {
+  .intro-page {
+    display: flex;
+    flex-direction: column;
+    gap: $gap-large;
+    width: 100%;
+    overflow: hidden;
+    background-color: rgba($color: #2c19544d, $alpha: 0.3);
+    border-radius: 4px;
+
+    .text-container {
+      gap: $gap-large;
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+
+      .intro-text {
+        margin: 0;
+        color: $dark-color-option-active;
+        font-family: "Inter";
+        font-weight: 500;
+        font-size: 11px;
+        letter-spacing: 0.16px;
+      }
+      .intro-href {
+        text-decoration: none;
+        color: $color-href-dark-text;
+      }
+    }
+
+    .input-btn-container {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      width: 100%;
+
+      .input-block {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        width: 100%;
+
+        .keyset-input {
+          color: #ffffff;
+          font-family: "Inter";
+          font-weight: 500;
+          font-size: 11px;
+          letter-spacing: 0.16px;
+          padding: $padding-main;
+          height: 32px;
+          width: 100%;
+          border: 1px solid #cbcbcb;
+          border-radius: 8px;
+          background: #383838 !important;
+          color: #ffffff !important;
+          transition: background 0.3s ease, border-color 0.3s ease,
+            color 0.3s ease;
+          cursor: pointer;
+
+          &:hover {
+            border: 1px solid #6929d1;
+            box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.1);
+          }
+
+          &:focus {
+            border: 1px solid #6929d1;
+            box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.2);
+            outline: none;
+          }
+        }
+
+        .keyset-btn {
+          padding: 6px 12px;
+          height: 32px;
+          width: 100%;
+          font-size: 12px;
+          border: 1px solid #6929d1;
+          border-radius: 32px;
+          background: #6929d1;
+          color: #ffffff;
+          transition: background 0.3s ease, border-color 0.3s ease,
+            color 0.3s ease;
+          cursor: pointer;
+
+          &:hover {
+            border: 1px solid #6929d1;
+            background: #f3ebf3;
+            color: #6929d1;
+          }
+        }
+      }
+
+      .key-learn-more {
+        color: $dark-color-option-active;
+        font-family: "Inter";
+        font-weight: 500;
+        font-size: 11px;
+        letter-spacing: 0.16px;
+        color: #f40bf4;
+        text-decoration: none;
+      }
+    }
+  }
 }

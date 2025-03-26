@@ -1,43 +1,80 @@
-import React, { useEffect, useState } from 'react';
-import { createRoot } from 'react-dom/client';
-import { IntroPage, Account, ChangeAPIkey, Support, RemoveBackground, Upscale, LoadingSpinner } from '@components/index';
-import { NO_INTERNET_ERR, TYPE_COMMAND, TYPE_IMAGEBYTES, TYPE_KEY, COMMAND_REMOVEBACKGROUND, COMMAND_ACCOUNT, COMMAND_SUPPORT, COMMAND_UPSCALE, COMMAND_INTRO, COMMAND_CHANGE_API_KEY } from "@constants/index";
-import '@styles/global.scss';
+import React, { useEffect, useState } from "react";
+import Navbar from "@components/navbar";
+import { createRoot } from "react-dom/client";
+import {
+  Account,
+  BalanceBanner,
+  ChangeAPIkey,
+  IntroPage,
+  RemoveBackground,
+  Support,
+  TextToImage,
+  Upscale,
+} from "@components/index";
+import { TabType } from "./types/enums";
+import {
+  TYPE_ACCOUNT,
+  TYPE_ACTION,
+  TYPE_IMAGEBYTES,
+  TYPE_KEY,
+  TYPE_TAB,
+} from "@constants/types";
+import "@styles/global.scss";
+import { sendMessageToSandBox } from "./api";
 
-type Command = typeof COMMAND_REMOVEBACKGROUND | typeof COMMAND_UPSCALE | typeof COMMAND_ACCOUNT | typeof COMMAND_SUPPORT | typeof COMMAND_INTRO | typeof COMMAND_CHANGE_API_KEY | undefined;
+const App = () => {
+  const [tab, setTab] = useState<TabType>(TabType.REMOVE_BACKGROUND);
 
+  const [page, setPage] = useState<JSX.Element | null>(null);
+  const [apiKey, setApiKey] = useState<string>("");
+  const [action, setAction] = useState();
+  const [imageBytes, setImageBytes] = useState<Uint8Array>(new Uint8Array());
 
-const App = () => { 
   /// !!!IMPORTANT
   if (navigator.onLine === false) {
-    parent.postMessage({ pluginMessage: NO_INTERNET_ERR }, "*");
+    parent.postMessage({ pluginMessage: "NO_INTERNET_ERR" }, "*");
     return <></>;
   }
 
-  const [page, setPage] = useState<JSX.Element | null>(null);
-  const [apiKey, setApiKey] = useState<string>('');
-  const [command, setCommand] = useState<Command>();
-  const [imageBytes, setImageBytes] = useState<Uint8Array>(new Uint8Array());
+  const handleTabChange = (selectedTab: TabType) => {
+    if (selectedTab === TabType.ACCOUNT) {
+      sendMessageToSandBox(
+        true,
+        "change height for account page",
+        TYPE_ACCOUNT
+      );
+    }
+    setTab(selectedTab);
+  };
 
   const setPageLogic = () => {
-    switch (command) {
-      case COMMAND_REMOVEBACKGROUND:
-        setPage(<RemoveBackground imageBytes={imageBytes} gottenKey={apiKey} />);
+    switch (tab) {
+      case TabType.REMOVE_BACKGROUND:
+        setPage(
+          <RemoveBackground
+            setImageBytes={setImageBytes}
+            gottenKey={apiKey}
+            imageBytes={imageBytes}
+          />
+        );
         break;
-      case COMMAND_UPSCALE:
-        setPage(<Upscale imageBytes={imageBytes} gottenKey={apiKey} />);
+      case TabType.UPSCALE:
+        setPage(
+          <Upscale
+            setImageBytes={setImageBytes}
+            gottenKey={apiKey}
+            imageBytes={imageBytes}
+          />
+        );
         break;
-      case COMMAND_ACCOUNT:
-        setPage(<Account gottenKey={apiKey} />);
+      case TabType.ACCOUNT:
+        setPage(<Account gottenKey={apiKey} changeTab={handleTabChange} />);
         break;
-      case COMMAND_SUPPORT:
+      case TabType.SUPPORT:
         setPage(<Support />);
         break;
-      case COMMAND_INTRO:
-        setPage(<IntroPage />);
-        break;
-      case COMMAND_CHANGE_API_KEY:
-        setPage(<ChangeAPIkey />);
+      case TabType.SET_API_KEY:
+        setPage(<ChangeAPIkey changeKey={setApiKey} />);
         break;
       default:
         setPage(null);
@@ -46,32 +83,45 @@ const App = () => {
 
   useEffect(() => {
     const messageHandler = ({ data: { pluginMessage } }: MessageEvent) => {
-      
       if (!pluginMessage) return;
-      const { type, api_key, buffer, command } = pluginMessage;
-      if (type === TYPE_KEY) setApiKey(api_key);
-      if (type === TYPE_IMAGEBYTES) setImageBytes(buffer);
-      if (type === TYPE_COMMAND) setCommand(command);
+      const { type, payload } = pluginMessage;
+
+      if (type === TYPE_KEY) setApiKey(payload);
+      else if (type === TYPE_IMAGEBYTES) setImageBytes(payload);
+      else if (type === TYPE_ACTION) setAction(payload);
+      else if (type === TYPE_TAB) setTab(payload);
     };
 
-    window.addEventListener('message', messageHandler);
+    window.addEventListener("message", messageHandler);
     return () => {
-      window.removeEventListener('message', messageHandler);
+      window.removeEventListener("message", messageHandler);
     };
   }, []);
 
   useEffect(() => {
     setPageLogic();
-  }, [command, apiKey]);
+  }, [tab, action, apiKey, imageBytes]);
 
   return (
-    <div className="root">
-      { page || <LoadingSpinner />}
-    </div>
+    <>
+      <div>
+        <Navbar gottenKey={apiKey} tab={tab} changeTab={handleTabChange} />
+        {page}
+        {!apiKey && <IntroPage />}
+      </div>
+      {apiKey && (
+        <div>
+          {(tab === TabType.REMOVE_BACKGROUND || tab === TabType.UPSCALE) && (
+            <BalanceBanner gottenKey={apiKey} />
+          )}
+          <TextToImage />
+        </div>
+      )}
+    </>
   );
 };
 
-const rootElement = document.getElementById('root');
+const rootElement = document.getElementById("root");
 if (rootElement) {
   const root = createRoot(rootElement);
   root.render(<App />);

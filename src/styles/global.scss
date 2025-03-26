@@ -1,19 +1,25 @@
-@use '@styles/variables' as *;
-@use '@styles/colors' as *;
+@use "@styles/variables" as *;
+@use "@styles/colors" as *;
 
 * {
   font-weight: 400;
 }
 
 body {
-  padding: $padding-main;
   box-sizing: border-box;
   border-radius: $border-radius-main;
-  background-color: #303030;
   margin: 0;
-  font-family: 'Montserrat', sans-serif; 
+  font-family: "Montserrat", sans-serif;
   font-weight: 400;
   height: 100vh;
+}
+
+#root {
+  padding: 8px 16px 16px 16px;
+  height: 92vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
 
 .flex-row {
@@ -64,9 +70,10 @@ body {
 }
 
 .success-text {
-  font-size: $font-size-xs;
+  font-size: $font-size-sm;
   color: $color-success-text;
   margin: -6px 6px;
+  text-align: center;
 }
 
 .disabled-btn {
@@ -85,9 +92,8 @@ body {
   color: $color-selector-disabled-text !important;
   border: 1px solid $color-selector-disabled-border !important;
   background: $color-selector-disabled-background !important;
-} 
+}
 
 .error-border {
   border: 1px solid $color-error-border !important;
 }
-
