@@ -41,7 +41,6 @@ export const getBalance = async (key: string) : Promise<GetBalanceReturnType> =>
 };
 
 export const removeBackgroundApi = async (imageBytes: Uint8Array, key: string) => {
-    console.log("removeBackgroundApi", imageBytes)
     try {
         const imageBinary = await getImageBinary(imageBytes);
 

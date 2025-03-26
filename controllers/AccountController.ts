@@ -39,7 +39,6 @@ const AccountController = async () => {
           ImageProcessor.setFetchedImage(response.msg, response.scaleFactor);
         }
         if (response.type === TYPE_SET_KEY) {
-          console.log(response.msg)
           figma.clientStorage.setAsync(API_KEY_NAME, response.msg).then(() => {
             figma.notify(KEY_SET);
           });
