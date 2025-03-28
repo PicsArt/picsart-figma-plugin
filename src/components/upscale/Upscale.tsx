@@ -61,7 +61,7 @@ const Upscale: React.FC<UpscaleProps> = ({
       </div>
       <Button
         type={
-          imageBytes && imageBytes.length > 0 && gottenKey && isCreditsInsufficient
+          imageBytes && imageBytes.length > 0 && gottenKey && !isCreditsInsufficient
             ? BtnType.UPSCALE_ACTIVE
             : BtnType.UPSCALE_DISABLED
         }
