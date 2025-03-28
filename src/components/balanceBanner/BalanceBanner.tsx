@@ -2,29 +2,50 @@ import React, { useEffect, useState } from "react";
 import { getBalance } from "@api/index";
 import { PRICING } from "@constants/url";
 import "./styles.scss";
+import { INSUFFICIENT_CREDITS } from "@ui_constants/texts";
 interface Props {
   gottenKey: string;
+  updateBalance: number;
+  isCreditsInsufficient: boolean;
+  setIsCreditsInsufficient: (status: boolean) => void;
 }
 
-const BalanceBanner: React.FC<Props> = ({ gottenKey }) => {
+const BalanceBanner: React.FC<Props> = ({
+  gottenKey,
+  updateBalance,
+  isCreditsInsufficient,
+  setIsCreditsInsufficient,
+}) => {
   const [keyBalance, setKeyBalance] = useState<number | null>(null);
 
   useEffect(() => {
     const getBalanceRequest = async () => {
       const response: GetBalanceReturnType = await getBalance(gottenKey);
       if (response.success) {
+        if (response.msg === 0) {
+          setIsCreditsInsufficient(true);
+        } else {
+          setIsCreditsInsufficient(false);
+        }
         setKeyBalance(response.msg as number);
+      } else {
+        setIsCreditsInsufficient(true);
       }
     };
 
     getBalanceRequest();
-  }, []);
+  }, [gottenKey, updateBalance]);
 
   return (
     <div className="balance-container">
       <div className="text-container">
         <span className="balance-text">Balance</span>
-        <span className="credits-text">{keyBalance} credits</span>
+        <span className="credits-text">
+          {keyBalance} credits{" "}
+          {isCreditsInsufficient && (
+            <span className="error-text">{INSUFFICIENT_CREDITS}</span>
+          )}
+        </span>
       </div>
       <div
         className="plus-container"

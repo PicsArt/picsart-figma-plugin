@@ -29,6 +29,9 @@ const App = () => {
   const [apiKey, setApiKey] = useState<string>("");
   const [action, setAction] = useState();
   const [imageBytes, setImageBytes] = useState<Uint8Array>(new Uint8Array());
+  const [updateBalance, setUpdateBalance] = useState<number>(0);
+  const [isCreditsInsufficient, setIsCreditsInsufficient] =
+    useState<boolean>(false);
 
   /// !!!IMPORTANT
   if (navigator.onLine === false) {
@@ -55,6 +58,8 @@ const App = () => {
             setImageBytes={setImageBytes}
             gottenKey={apiKey}
             imageBytes={imageBytes}
+            setUpdateBalance={setUpdateBalance}
+            isCreditsInsufficient={isCreditsInsufficient}
           />
         );
         break;
@@ -64,6 +69,8 @@ const App = () => {
             setImageBytes={setImageBytes}
             gottenKey={apiKey}
             imageBytes={imageBytes}
+            setUpdateBalance={setUpdateBalance}
+            isCreditsInsufficient={isCreditsInsufficient}
           />
         );
         break;
@@ -112,7 +119,12 @@ const App = () => {
       {apiKey && (
         <div>
           {(tab === TabType.REMOVE_BACKGROUND || tab === TabType.UPSCALE) && (
-            <BalanceBanner gottenKey={apiKey} />
+              <BalanceBanner
+                gottenKey={apiKey}
+                updateBalance={updateBalance}
+                isCreditsInsufficient={isCreditsInsufficient}
+                setIsCreditsInsufficient={setIsCreditsInsufficient}
+              />
           )}
           <TextToImage />
         </div>

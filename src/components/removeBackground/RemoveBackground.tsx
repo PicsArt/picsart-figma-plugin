@@ -15,16 +15,21 @@ import { BtnType } from "../../types/enums";
 interface RemoveBackgroundProps {
   gottenKey: string;
   imageBytes: Uint8Array;
-  setImageBytes: (bytes: Uint8Array) => void
+  setImageBytes: (bytes: Uint8Array) => void;
+  setUpdateBalance: (arg: (number: number) => number) => void;
+  isCreditsInsufficient: boolean;
 }
 
 const RemoveBackground: React.FC<RemoveBackgroundProps> = ({
   gottenKey,
   imageBytes,
-  setImageBytes
+  setImageBytes,
+  setUpdateBalance,
+  isCreditsInsufficient,
 }) => {
   const [loading, setLoading] = useState<boolean>(false);
   const processImage = async () => {
+    if (!imageBytes || !imageBytes.length || !isCreditsInsufficient) return;
     setLoading(true);
     sendMessageToSandBox(true, PROCESSING_IMAGE, TYPE_NOTIFY);
 
@@ -32,6 +37,7 @@ const RemoveBackground: React.FC<RemoveBackgroundProps> = ({
     setImageBytes(response.msg as Uint8Array);
     sendMessageToSandBox(response.success, response.msg, TYPE_IMAGEBYTES);
     setLoading(false);
+    setUpdateBalance((prev) => ++prev);
   };
 
   return (
@@ -45,7 +51,10 @@ const RemoveBackground: React.FC<RemoveBackgroundProps> = ({
       />
       <Button
         type={
-          imageBytes && imageBytes.length > 0 && gottenKey
+          imageBytes &&
+          imageBytes.length > 0 &&
+          gottenKey &&
+          !isCreditsInsufficient
             ? BtnType.REMOVE_BG_ACTIVE
             : BtnType.REMOVE_BG_DISABLED
         }

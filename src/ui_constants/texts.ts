@@ -1,6 +1,7 @@
 
 export const SELECT_IMAGE = "Firstly, select the image" as const
 export const IMAGE_SELECTED = "The image is selected" as const 
+export const INSUFFICIENT_CREDITS = "Insufficient credits" as const 
 
 // Tabs
 export const REMOVE_BG_TAB = "Remove Background" as const 
