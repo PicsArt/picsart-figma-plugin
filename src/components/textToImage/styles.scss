@@ -1,0 +1,93 @@
+@use "@styles/colors" as *;
+
+.figma-light {
+  .text-to-image {
+    margin-top: 12px;
+    height: 38px;
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #f5f5f5;
+    border-radius: 2px;
+    padding: 8px;
+    box-sizing: border-box;
+  }
+  .text {
+    font-family: "Inter";
+    font-weight: 400;
+    font-size: 11px;
+    letter-spacing: 0.16px;
+    color: $light-color-option-active;
+  }
+
+  .coming-soon {
+    height: 22px;
+    width: 104px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-sizing: border-box;
+
+    .inner-container {
+      padding: 4px 10px;
+      border-radius: 24px;
+      background: linear-gradient(#f5f5f5, #f5f5f5) padding-box,
+        linear-gradient(90deg, #fabb00, #d0388d, #9a1a89) border-box;
+      border: 1px solid transparent;
+    }
+    span {
+      background: linear-gradient(90deg, #fabb00, #d0388d, #9a1a89);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      font-family: "Inter";
+      font-weight: 500;
+      font-size: 11px;
+      letter-spacing: 0.16px;
+    }
+  }
+}
+
+.figma-dark {
+  .text-to-image {
+    margin-top: 12px;
+    height: 38px;
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(90deg, rgba(255, 52, 249, 0.1) 0%, rgba(14, 0, 172, 0.4) 60%);
+    border-radius: 2px;
+    padding: 8px;
+    box-sizing: border-box;
+  }
+  .text {
+    font-family: "Inter";
+    font-weight: 400;
+    font-size: 11px;
+    letter-spacing: 0.16px;
+    color: #ffffff;
+  }
+
+  .coming-soon {
+    height: 22px;
+    width: 104px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-sizing: border-box;
+
+    .inner-container {
+      padding: 4px 10px;
+      border-radius: 24px;
+      border: 1px solid #F40BF4;
+    }
+    span {
+      color: #F40BF4;
+      font-family: "Inter";
+      font-weight: 500;
+      font-size: 11px;
+      letter-spacing: 0.16px;
+    }
+  }
+}

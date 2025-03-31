@@ -1,0 +1,222 @@
+@use "@styles/variables" as *;
+@use "@styles/colors" as *;
+
+.figma-light {
+  .btn-container {
+    width: 100%;
+    height: 30px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-family: "Inter";
+    font-weight: 500;
+    font-size: 11px;
+    letter-spacing: 0.16px;
+    border-radius: 6px;
+    box-sizing: border-box;
+  }
+
+  .remove-bg-active,
+  .remove-bg-disabled,
+  .continue,
+  .upscale-active,
+  .upscale-disabled,
+  .submit-active,
+  .submit-disabled,
+  .new-key,
+  .change-key,
+  .buy-more {
+    cursor: pointer;
+    transition: background-color 0.3s, border-color 0.3s;
+  }
+
+  .remove-bg-active {
+    color: #ffffff;
+    background-color: #520be5;
+  }
+  .remove-bg-active:hover {
+    background-color: #3e07c5;
+  }
+
+  .remove-bg-disabled {
+    color: #ffffff;
+    background-color: #b2b2b2;
+    border: 2px solid #b2b2b2;
+  }
+  .remove-bg-disabled:hover {
+    background-color: #9e9e9e;
+  }
+
+  .continue {
+    color: #ffffff;
+    background-color: #520be5;
+  }
+  .continue:hover {
+    background-color: #3e07c5;
+  }
+
+  .upscale-active {
+    color: #ffffff;
+    background-color: #520be5;
+  }
+  .upscale-active:hover {
+    background-color: #3e07c5;
+  }
+
+  .upscale-disabled {
+    color: #ffffff;
+    background-color: #b2b2b2;
+    border: 2px solid #b2b2b2;
+  }
+  .upscale-disabled:hover {
+    background-color: #9e9e9e;
+  }
+
+  .submit-disabled {
+    color: #ffffff;
+    background-color: #b2b2b2;
+    border: 2px solid #b2b2b2;
+  }
+
+  .submit-active {
+    color: #ffffff;
+    background-color: #520be5;
+  }
+  .submit-active:hover {
+    background-color: #3e07c5;
+
+  }
+  .new-key {
+    color: #520be5;
+    background-color: #ffffff;
+    border: 2px solid #520be5;
+  }
+  .new-key:hover {
+    background-color: #e5e5f7;
+    border-color: #3e07c5;
+  }
+
+  .change-key {
+    color: #520be5;
+    background-color: #ffffff;
+    border: 2px solid #520be5;
+  }
+  .change-key:hover {
+    background-color: #e5e5f7;
+    border-color: #3e07c5;
+  }
+
+  .buy-more {
+    color: #ffffff;
+    background-color: #520be5;
+  }
+  .buy-more:hover {
+    background-color: #3e07c5;
+  }
+}
+
+.figma-dark {
+  .btn-container {
+    width: 100%;
+    height: 30px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-family: "Inter";
+    font-weight: 500;
+    font-size: 11px;
+    letter-spacing: 0.16px;
+    border-radius: 6px;
+    box-sizing: border-box;
+  }
+
+  .remove-bg-active,
+  .remove-bg-disabled,
+  .continue,
+  .upscale-active,
+  .upscale-disabled,
+  .submit-active,
+  .submit-disabled,
+  .new-key,
+  .change-key,
+  .buy-more {
+    cursor: pointer;
+    transition: background-color 0.3s, border-color 0.3s;
+  }
+
+  .remove-bg-active {
+    color: #000000;
+    background-color: #bd99f8;
+  }
+  .remove-bg-active:hover {
+    background-color: #5a1f9e;
+  }
+
+  .remove-bg-disabled {
+    color: #ffffff;
+    border: 2px solid #4a4646;
+  }
+  .remove-bg-disabled:hover {
+    border-color: #3e3a3a;
+  }
+
+  .continue {
+    color: #000000;
+    background-color: #bd99f8;
+  }
+  .continue:hover {
+    background-color: #5a1f9e;
+  }
+
+  .upscale-active {
+    color: #000000;
+    background-color: #bd99f8;
+  }
+  .upscale-active:hover {
+    background-color: #5a1f9e;
+  }
+
+  .upscale-disabled {
+    color: #ffffff;
+    border: 2px solid #4a4646;
+  }
+  .upscale-disabled:hover {
+    border-color: #3e3a3a;
+  }
+  .submit-disabled {
+    color: #ffffff;
+    border: 2px solid #4a4646;
+  }
+
+  .submit-active {
+    color: #000000;
+    background-color: #bd99f8;
+  }
+  .submit-active:hover {
+    background-color: #5a1f9e;
+  }
+
+  .new-key {
+    color: #000000;
+    background-color: #bd99f8;
+  }
+  .new-key:hover {
+    background-color: #5a1f9e;
+  }
+
+  .change-key {
+    color: #000000;
+    background-color: #bd99f8;
+  }
+  .change-key:hover {
+    background-color: #5a1f9e;
+  }
+
+  .buy-more {
+    color: #000000;
+    background-color: #bd99f8;
+  }
+  .buy-more:hover {
+    background-color: #5a1f9e;
+  }
+}

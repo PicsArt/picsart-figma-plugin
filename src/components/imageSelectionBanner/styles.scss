@@ -1,0 +1,71 @@
+@use "@styles/variables" as *;
+@use "@styles/colors" as *;
+
+.figma-light {
+
+    .imageselectionbanner-container {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        width: 100%;
+        gap: 8px;
+        margin-top: 12px;
+        margin-bottom: 12px;
+        height: 32px;
+
+        .danger-icon {
+            width: 20px;
+            height: 18px;
+        }
+
+        .check-icon {
+            width: 16px;
+            height: 16px;
+        }
+
+        .text {
+            cursor: pointer;
+            color: $light-color-option-active;
+            font-family: "Inter";
+            font-weight: 500;
+            font-size: 13px;
+            letter-spacing: 0.16px;
+        }
+    }
+}
+
+
+.figma-dark {
+
+    .imageselectionbanner-container {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        width: 100%;
+        gap: 8px;
+        margin-top: 12px;
+        margin-bottom: 12px;
+        height: 32px;
+
+        .danger-icon {
+            width: 20px;
+            height: 18px;
+        }
+
+        .check-icon {
+            width: 16px;
+            height: 16px;
+        }
+
+        .text {
+            cursor: pointer;
+            color: $dark-color-option-active;
+            font-family: "Inter";
+            font-weight: 500;
+            font-size: 13px;
+            letter-spacing: 0.16px;
+        }
+    }
+}
+
+

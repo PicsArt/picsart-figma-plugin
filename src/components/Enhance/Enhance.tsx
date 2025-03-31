@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import Selector from "@components/Selector";
+import Selector from "@components/selector/Selector";
 import { enhanceImage, sendMessageToSandBox } from "@api/index";
 import { PROCESSING_IMAGE, TYPE_IMAGEBYTES, TYPE_NOTIFY } from "@constants/index";
 import './styles.scss';

@@ -1,19 +1,14 @@
-import { TYPE_COMMAND} from "@constants/types";
+import { TYPE_TAB } from "@constants/types";
 
 const SupportController = async () => {
-  const command = figma.command;
-  let commandObj = { type: TYPE_COMMAND, command}
-  
-  figma.showUI(__html__, {visible: false});
-  
+  figma.showUI(__html__, { visible: false });
+
   setTimeout(() => {
-    figma.ui.postMessage(commandObj);
+    figma.ui.postMessage({ type: TYPE_TAB, payload: "Supprot" });
     setTimeout(() => {
       figma.closePlugin();
     }, 300);
   }, 300);
-
-}
-
+};
 
 export default SupportController;

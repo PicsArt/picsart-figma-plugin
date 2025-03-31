@@ -66,11 +66,14 @@ module.exports = (__, argv) => ({
       "@controllers": path.resolve(__dirname, 'controllers'),
       "@services": path.resolve(__dirname, 'services'),
       "@constants": path.resolve(__dirname, 'constants/'),
+      "@ui_constants": path.resolve(__dirname, 'src/ui_constants/'),
       "@styles": path.resolve(__dirname, 'src/styles/'),
       "@utils": path.resolve(__dirname, 'src/utils/'),
+      "@hooks": path.resolve(__dirname, 'src/hooks/'),
       "@components": path.resolve(__dirname, 'src/components/'),
       "@api": path.resolve(__dirname, 'src/api/'),
       "@ui": path.resolve(__dirname, 'src/components/ui/'),
+      "@types": path.resolve(__dirname, 'src/types/'),
     }
   },
   output: {

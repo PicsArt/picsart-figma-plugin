@@ -1,6 +1,4 @@
-import { NO_NODE_SELECTED_ERR, SELCTED_NODE_NOFILSS_OR_RESIZE_SUPPORT_ERR } from  "../constants/errorMessages";
-import { IMAGE_APPLIED_SUCC, PROCESSING_IMAGE } from  "../constants/messages";
-
+import { IMAGE_APPLIED_SUCC, NO_NODE_SELECTED_ERR, SELCTED_NODE_NOFILSS_OR_RESIZE_SUPPORT_ERR } from  "../constants/index";
 /**
  * Processes the selected node to extract the image bytes if it has an image fill.
  * This function checks the selected node, finds the image fill, and retrieves the image bytes for further processing.
@@ -12,7 +10,6 @@ const processImage = async (figma: PluginAPI) : Promise<Uint8Array | undefined> 
   const selectedNodes = figma.currentPage.selection;
   
   if (selectedNodes.length === 0) {
-    figma.closePlugin(NO_NODE_SELECTED_ERR);
     return;
   }
   const selectedNode = selectedNodes[0];
@@ -28,8 +25,6 @@ const processImage = async (figma: PluginAPI) : Promise<Uint8Array | undefined> 
       if (imageFill && imageFill.imageHash) {
         const image = figma.getImageByHash(imageFill.imageHash);
         const imageBytes = await image?.getBytesAsync();
-        figma.notify(PROCESSING_IMAGE);
-
         return imageBytes;
       }
     }
@@ -49,7 +44,7 @@ const setFetchedImage = async (uint8Array: Uint8Array, scaleFactor: number | und
   const selectedNodes = figma.currentPage.selection;
 
   if (selectedNodes.length === 0) {
-    figma.closePlugin(SELCTED_NODE_NOFILSS_OR_RESIZE_SUPPORT_ERR);
+    figma.notify(NO_NODE_SELECTED_ERR);
     return;
   }
 
@@ -70,9 +65,9 @@ const setFetchedImage = async (uint8Array: Uint8Array, scaleFactor: number | und
 
     (selectedNode as GeometryMixin).fills = [imageFill];
 
-    figma.closePlugin(IMAGE_APPLIED_SUCC);
+    figma.notify(IMAGE_APPLIED_SUCC);
   } else {
-    figma.closePlugin(SELCTED_NODE_NOFILSS_OR_RESIZE_SUPPORT_ERR);
+    figma.notify(SELCTED_NODE_NOFILSS_OR_RESIZE_SUPPORT_ERR);
   }
 };
 

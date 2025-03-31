@@ -2,14 +2,12 @@
   "name": "BG Remover & Image Enhancer by Picsart",
   "id": "1448229969327565675",
   "api": "1.0.0",
-  "main": "dist/code.js",  
-  "ui": "dist/ui.html",      
+  "main": "dist/code.js",
+  "ui": "dist/ui.html",
   "capabilities": [],
   "enableProposedApi": false,
   "documentAccess": "dynamic-page",
-  "editorType": [
-    "figma"
-  ],
+  "editorType": ["figma"],
   "permissions": [],
   "networkAccess": {
     "allowedDomains": [
@@ -20,7 +18,7 @@
       "https://picsart.io",
       "https://cdn.picsart.io"
     ]
-  }, 
+  },
   "menu": [
     {
       "name": "Remove Background",
@@ -47,7 +45,5 @@
       "name": "Support",
       "command": "SUPPORT"
     }
-  
   ]
 }
-
