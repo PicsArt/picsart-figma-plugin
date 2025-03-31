@@ -9,11 +9,16 @@ export const HEADER_PLUGIN_NAME_VALUE = "Figma" as const;
 // Links
 export const QUERY_PARAMS =
   "?utm_source=figma&utm_medium=app&utm_campaign=plugins" as const;
-export const DEVELOPER_GUIDELINES = (`https://picsart.com/developer-guidelines${QUERY_PARAMS}`) as const;
-export const PRIVACY_POLICY = (`https://picsart.com/privacy-policy${QUERY_PARAMS}`) as const;
-export const TRUST_CENTER = (`https://picsart.io/trust${QUERY_PARAMS}`) as const;
-export const HELP_CENTER = (`https://support.picsart.com/hc/en-us${QUERY_PARAMS}`) as const;
-export const PRICING = (`https://console.picsart.io/usage${QUERY_PARAMS}`) as const;
-export const PICSART_IO = (`https://picsart.io${QUERY_PARAMS}`) as const;
-export const CONSOLE = (`https://console.picsart.io${QUERY_PARAMS}`) as const;
-export const LEARN_MORE = (`https://docs.picsart.io/docs/creative-apis-get-api-key${QUERY_PARAMS}`) as const;
+export const DEVELOPER_GUIDELINES =
+  `https://picsart.com/developer-guidelines${QUERY_PARAMS}` as const;
+export const PRIVACY_POLICY =
+  `https://picsart.com/privacy-policy${QUERY_PARAMS}` as const;
+export const TRUST_CENTER = `https://picsart.io/trust${QUERY_PARAMS}` as const;
+export const HELP_CENTER =
+  `https://help.picsart.io/hc/en-us${QUERY_PARAMS}` as const;
+export const PRICING =
+  `https://console.picsart.io/usage${QUERY_PARAMS}` as const;
+export const PICSART_IO = `https://picsart.io${QUERY_PARAMS}` as const;
+export const CONSOLE = `https://console.picsart.io${QUERY_PARAMS}` as const;
+export const LEARN_MORE =
+  `https://docs.picsart.io/docs/creative-apis-get-api-key${QUERY_PARAMS}` as const;
