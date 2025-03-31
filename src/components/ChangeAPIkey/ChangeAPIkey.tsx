@@ -12,9 +12,10 @@ import "./styles.scss";
 
 interface props {
   changeKey: (key: string) => void;
+  needToSetUpdateBalance: (arg: (number: number) => number) => void;
 }
 
-const ChangeAPIkey: React.FC<props> = ({changeKey}) => {
+const ChangeAPIkey: React.FC<props> = ({ changeKey, needToSetUpdateBalance }) => {
   const [value, setValue] = useState<string>("");
   const [error, setError] = useState<string>();
   const [success, setSuccess] = useState<string>();
@@ -38,6 +39,7 @@ const ChangeAPIkey: React.FC<props> = ({changeKey}) => {
       setError("");
       sendMessageToSandBox(true, value, TYPE_SET_KEY);
       changeKey(value);
+      needToSetUpdateBalance((prev) => ++prev);
     } else {
       setSuccess("");
       setError(KEY_WRONG_ERR);

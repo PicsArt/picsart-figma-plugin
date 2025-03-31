@@ -16,7 +16,7 @@ interface RemoveBackgroundProps {
   gottenKey: string;
   imageBytes: Uint8Array;
   setImageBytes: (bytes: Uint8Array) => void;
-  setUpdateBalance: (arg: (number: number) => number) => void;
+  needToSetUpdateBalance: (arg: (number: number) => number) => void;
   isCreditsInsufficient: boolean;
 }
 
@@ -24,12 +24,12 @@ const RemoveBackground: React.FC<RemoveBackgroundProps> = ({
   gottenKey,
   imageBytes,
   setImageBytes,
-  setUpdateBalance,
+  needToSetUpdateBalance,
   isCreditsInsufficient,
 }) => {
   const [loading, setLoading] = useState<boolean>(false);
   const processImage = async () => {
-    if (!imageBytes || !imageBytes.length || !isCreditsInsufficient) return;
+    if (!imageBytes || !imageBytes.length || isCreditsInsufficient) return;
     setLoading(true);
     sendMessageToSandBox(true, PROCESSING_IMAGE, TYPE_NOTIFY);
 
@@ -37,7 +37,7 @@ const RemoveBackground: React.FC<RemoveBackgroundProps> = ({
     setImageBytes(response.msg as Uint8Array);
     sendMessageToSandBox(response.success, response.msg, TYPE_IMAGEBYTES);
     setLoading(false);
-    setUpdateBalance((prev) => ++prev);
+    needToSetUpdateBalance((prev) => ++prev);
   };
 
   return (

@@ -4,11 +4,10 @@ import {
   NO_INTERNET_ERR_MSG,
   API_KEY_NAME,
   WIDGET_WIDTH,
-  TYPE_IMAGEBYTES,
 } from "@constants/index";
 import IntroController from "@controllers/IntroController";
 import routeCommand from "@routes/CommandRouter";
-import ImageProcessor from "@services/ImageProcessor";
+import { sendImageSelectionStatus } from "@services/ImageProcessor";
 
 figma.showUI(__html__, {
   visible: false,
@@ -23,13 +22,6 @@ setTimeout(async () => {
   figma.on("selectionchange", () => {
     sendImageSelectionStatus();
   });
-
-  const sendImageSelectionStatus = async () => {
-    figma.ui.postMessage({
-      type: TYPE_IMAGEBYTES,
-      payload: await ImageProcessor.processImage(figma),
-    });
-  };
 
   const key = await figma.clientStorage.getAsync(API_KEY_NAME);
   if (!key) {

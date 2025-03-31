@@ -1,4 +1,4 @@
-import ImageProcessor from "@services/ImageProcessor";
+import ImageProcessor, { sendImageSelectionStatus } from "@services/ImageProcessor";
 import {
   TAB_ACCOUNT,
   TYPE_IMAGEBYTES,
@@ -31,6 +31,7 @@ const AccountController = async () => {
       type: TYPE_TAB,
       payload: TAB_ACCOUNT,
     });
+    sendImageSelectionStatus()
 
     figma.ui.onmessage = (response) => {
       if (response.success) {

@@ -5,9 +5,6 @@ const SupportController = async () => {
 
   setTimeout(() => {
     figma.ui.postMessage({ type: TYPE_TAB, payload: "Supprot" });
-    setTimeout(() => {
-      figma.closePlugin();
-    }, 300);
   }, 300);
 };
 

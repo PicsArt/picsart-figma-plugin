@@ -10,7 +10,6 @@ const ChangeApiKeyController = async () => {
             if (response.success) {
                 figma.clientStorage.setAsync(API_KEY_NAME, response.msg).then(() => {
                     figma.notify(KEY_SET);
-                    figma.closePlugin();
                 });
             } else {
                 figma.notify(response.msg);

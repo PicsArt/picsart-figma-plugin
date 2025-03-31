@@ -1,5 +1,6 @@
 import { COMMAND_INTRO, API_KEY_NAME, TYPE_COMMAND, WIDGET_WIDTH, WIDGET_HEIGHT_WITHOUT_KEY } from "@constants/index";
 import routeCommand from "@routes/CommandRouter";
+import { sendImageSelectionStatus } from "@services/ImageProcessor";
 
 const IntroController = async () => {
     let commandIntro = { type: TYPE_COMMAND, command: COMMAND_INTRO } // IMPORTANT
@@ -7,6 +8,7 @@ const IntroController = async () => {
   
     setTimeout(() => {
         figma.ui.postMessage(commandIntro);
+        sendImageSelectionStatus();
         figma.ui.onmessage = (response) => {
             if (response.success) {
                 figma.clientStorage.setAsync(API_KEY_NAME, response.msg).then(() => {

@@ -1,4 +1,12 @@
-import { IMAGE_APPLIED_SUCC, NO_NODE_SELECTED_ERR, SELCTED_NODE_NOFILSS_OR_RESIZE_SUPPORT_ERR } from  "../constants/index";
+import { IMAGE_APPLIED_SUCC, NO_NODE_SELECTED_ERR, SELCTED_NODE_NOFILSS_OR_RESIZE_SUPPORT_ERR, TYPE_IMAGEBYTES } from  "../constants/index";
+
+export const sendImageSelectionStatus = async () => {
+  figma.ui.postMessage({
+    type: TYPE_IMAGEBYTES,
+    payload: await processImage(figma),
+  });
+};
+
 /**
  * Processes the selected node to extract the image bytes if it has an image fill.
  * This function checks the selected node, finds the image fill, and retrieves the image bytes for further processing.
@@ -28,9 +36,7 @@ const processImage = async (figma: PluginAPI) : Promise<Uint8Array | undefined> 
         return imageBytes;
       }
     }
-  } else {
-    figma.closePlugin();
-  }
+  } 
 };
 
 /**

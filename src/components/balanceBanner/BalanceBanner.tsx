@@ -5,14 +5,14 @@ import "./styles.scss";
 import { INSUFFICIENT_CREDITS } from "@ui_constants/texts";
 interface Props {
   gottenKey: string;
-  updateBalance: number;
+  needToUpdateBalance: number;
   isCreditsInsufficient: boolean;
   setIsCreditsInsufficient: (status: boolean) => void;
 }
 
 const BalanceBanner: React.FC<Props> = ({
   gottenKey,
-  updateBalance,
+  needToUpdateBalance,
   isCreditsInsufficient,
   setIsCreditsInsufficient,
 }) => {
@@ -34,7 +34,7 @@ const BalanceBanner: React.FC<Props> = ({
     };
 
     getBalanceRequest();
-  }, [gottenKey, updateBalance]);
+  }, [gottenKey, needToUpdateBalance]);
 
   return (
     <div className="balance-container">

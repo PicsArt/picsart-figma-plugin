@@ -1,3 +1,5 @@
+/* eslint-disable react-hooks/rules-of-hooks */
+/* eslint-disable react-hooks/exhaustive-deps */
 import React, { useEffect, useState } from "react";
 import Navbar from "@components/navbar";
 import { createRoot } from "react-dom/client";
@@ -29,7 +31,7 @@ const App = () => {
   const [apiKey, setApiKey] = useState<string>("");
   const [action, setAction] = useState();
   const [imageBytes, setImageBytes] = useState<Uint8Array>(new Uint8Array());
-  const [updateBalance, setUpdateBalance] = useState<number>(0);
+  const [needToUpdateBalance, needToSetUpdateBalance] = useState<number>(0);
   const [isCreditsInsufficient, setIsCreditsInsufficient] =
     useState<boolean>(false);
 
@@ -58,7 +60,7 @@ const App = () => {
             setImageBytes={setImageBytes}
             gottenKey={apiKey}
             imageBytes={imageBytes}
-            setUpdateBalance={setUpdateBalance}
+            needToSetUpdateBalance={needToSetUpdateBalance}
             isCreditsInsufficient={isCreditsInsufficient}
           />
         );
@@ -69,7 +71,7 @@ const App = () => {
             setImageBytes={setImageBytes}
             gottenKey={apiKey}
             imageBytes={imageBytes}
-            setUpdateBalance={setUpdateBalance}
+            needToSetUpdateBalance={needToSetUpdateBalance}
             isCreditsInsufficient={isCreditsInsufficient}
           />
         );
@@ -81,7 +83,12 @@ const App = () => {
         setPage(<Support />);
         break;
       case TabType.SET_API_KEY:
-        setPage(<ChangeAPIkey changeKey={setApiKey} />);
+        setPage(
+          <ChangeAPIkey
+            changeKey={setApiKey}
+            needToSetUpdateBalance={needToSetUpdateBalance}
+          />
+        );
         break;
       default:
         setPage(null);
@@ -107,7 +114,7 @@ const App = () => {
 
   useEffect(() => {
     setPageLogic();
-  }, [tab, action, apiKey, imageBytes]);
+  }, [tab, action, apiKey, imageBytes, isCreditsInsufficient]);
 
   return (
     <>
@@ -119,12 +126,12 @@ const App = () => {
       {apiKey && (
         <div>
           {(tab === TabType.REMOVE_BACKGROUND || tab === TabType.UPSCALE) && (
-              <BalanceBanner
-                gottenKey={apiKey}
-                updateBalance={updateBalance}
-                isCreditsInsufficient={isCreditsInsufficient}
-                setIsCreditsInsufficient={setIsCreditsInsufficient}
-              />
+            <BalanceBanner
+              gottenKey={apiKey}
+              needToUpdateBalance={needToUpdateBalance}
+              isCreditsInsufficient={isCreditsInsufficient}
+              setIsCreditsInsufficient={setIsCreditsInsufficient}
+            />
           )}
           <TextToImage />
         </div>

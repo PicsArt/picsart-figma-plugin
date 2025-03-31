@@ -14,7 +14,7 @@ interface UpscaleProps {
   gottenKey: string;
   imageBytes: Uint8Array;
   setImageBytes: (bytes: Uint8Array) => void;
-  setUpdateBalance: (arg: (number: number) => number) => void;
+  needToSetUpdateBalance: (arg: (number: number) => number) => void;
   isCreditsInsufficient: boolean;
 }
 const options = ["2", "4", "6", "8"];
@@ -23,7 +23,7 @@ const Upscale: React.FC<UpscaleProps> = ({
   gottenKey,
   imageBytes,
   setImageBytes,
-  setUpdateBalance,
+  needToSetUpdateBalance,
   isCreditsInsufficient,
 }) => {
   const [loading, setLoading] = useState<boolean>(false);
@@ -31,7 +31,7 @@ const Upscale: React.FC<UpscaleProps> = ({
   const [scaleFactor, setScaleFactor] = useState(2);
 
   const handleSubmit = async () => {
-    if (!imageBytes || !imageBytes.length || !isCreditsInsufficient) return;
+    if (!imageBytes || !imageBytes.length || isCreditsInsufficient) return;
     setLoading(true);
 
     if (!scaleFactor) return;
@@ -46,7 +46,7 @@ const Upscale: React.FC<UpscaleProps> = ({
       scaleFactor
     );
     setLoading(false);
-    setUpdateBalance((prev) => ++prev);
+    needToSetUpdateBalance((prev) => ++prev);
   };
 
   const handleOnChange = (val: string) => {
