@@ -31,7 +31,7 @@ const Upscale: React.FC<UpscaleProps> = ({
   const [scaleFactor, setScaleFactor] = useState(2);
 
   const handleSubmit = async () => {
-    if (!imageBytes || !imageBytes.length || isCreditsInsufficient) return;
+    if (!imageBytes || !gottenKey || !imageBytes.length || isCreditsInsufficient) return;
     setLoading(true);
 
     if (!scaleFactor) return;

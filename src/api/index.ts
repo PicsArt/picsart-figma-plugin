@@ -8,13 +8,14 @@ interface BalanceResponse {
 }
 
 export const sendMessageToSandBox = (success: boolean, msg: string | Uint8Array, type? : string, scaleFactor? : number) => {
+    // eslint-disable-next-line no-restricted-globals
     parent.postMessage({ pluginMessage: {
       success,
       msg,
       type,
       scaleFactor
     }}, "*" );
-}
+}   
 
 export const getBalance = async (key: string) : Promise<GetBalanceReturnType> => {
     try {

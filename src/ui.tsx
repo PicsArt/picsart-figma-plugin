@@ -1,14 +1,15 @@
 /* eslint-disable react-hooks/rules-of-hooks */
 /* eslint-disable react-hooks/exhaustive-deps */
 import React, { useEffect, useState } from "react";
-import Navbar from "@components/navbar";
 import { createRoot } from "react-dom/client";
 import {
+  Navbar,
   Account,
   BalanceBanner,
   ChangeAPIkey,
   IntroPage,
   RemoveBackground,
+  RemoveBackgroundHidden,
   Support,
   TextToImage,
   Upscale,
@@ -20,9 +21,10 @@ import {
   TYPE_IMAGEBYTES,
   TYPE_KEY,
   TYPE_TAB,
+  TYPE_VALIDATE_KEY,
 } from "@constants/types";
 import "@styles/global.scss";
-import { sendMessageToSandBox } from "./api";
+import { getBalance, sendMessageToSandBox } from "./api";
 
 const App = () => {
   const [tab, setTab] = useState<TabType>(TabType.REMOVE_BACKGROUND);
@@ -37,6 +39,7 @@ const App = () => {
 
   /// !!!IMPORTANT
   if (navigator.onLine === false) {
+    // eslint-disable-next-line no-restricted-globals
     parent.postMessage({ pluginMessage: "NO_INTERNET_ERR" }, "*");
     return <></>;
   }
@@ -54,6 +57,11 @@ const App = () => {
 
   const setPageLogic = () => {
     switch (tab) {
+      case TabType.TAB_REMOVE_BACKGROUND_INSTANTLY:
+        setPage(
+          <RemoveBackgroundHidden gottenKey={apiKey} imageBytes={imageBytes} />
+        );
+        break;
       case TabType.REMOVE_BACKGROUND:
         setPage(
           <RemoveBackground
@@ -96,14 +104,27 @@ const App = () => {
   };
 
   useEffect(() => {
-    const messageHandler = ({ data: { pluginMessage } }: MessageEvent) => {
+    const messageHandler = async ({
+      data: { pluginMessage },
+    }: MessageEvent) => {
       if (!pluginMessage) return;
       const { type, payload } = pluginMessage;
 
       if (type === TYPE_KEY) setApiKey(payload);
-      else if (type === TYPE_IMAGEBYTES) setImageBytes(payload);
-      else if (type === TYPE_ACTION) setAction(payload);
-      else if (type === TYPE_TAB) setTab(payload);
+      else if (type === TYPE_VALIDATE_KEY) {
+        const res = await getBalance(payload);
+        if (res.success && res.msg !== 0) {
+          sendMessageToSandBox(true, "", TYPE_VALIDATE_KEY);
+        } else {
+          sendMessageToSandBox(false, "", TYPE_VALIDATE_KEY);
+        }
+      } else if (type === TYPE_IMAGEBYTES) {
+        setImageBytes(payload);
+      } else if (type === TYPE_ACTION) {
+        setAction(payload);
+      } else if (type === TYPE_TAB) {
+        setTab(payload);
+      }
     };
 
     window.addEventListener("message", messageHandler);

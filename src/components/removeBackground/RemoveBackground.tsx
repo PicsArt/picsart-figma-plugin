@@ -29,7 +29,7 @@ const RemoveBackground: React.FC<RemoveBackgroundProps> = ({
 }) => {
   const [loading, setLoading] = useState<boolean>(false);
   const processImage = async () => {
-    if (!imageBytes || !imageBytes.length || isCreditsInsufficient) return;
+    if (!imageBytes || !gottenKey || !imageBytes.length || isCreditsInsufficient) return;
     setLoading(true);
     sendMessageToSandBox(true, PROCESSING_IMAGE, TYPE_NOTIFY);
 

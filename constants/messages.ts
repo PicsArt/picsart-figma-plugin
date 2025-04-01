@@ -1,13 +1,15 @@
 export const PROCESSING_IMAGE = "Processing the selected image...";
-export const IMAGE_APPLIED_SUCC = "The image has been successfully applied to the selected node.";
-export const FETCHING = "Fetching data...";
-export const BALANCE_IS = "Your API key balance is: ";
+export const BACKGROUND_SUCC_REMOVED =
+  "The background has been successfully removed!";
 export const KEY_SET = "The API key has been successfully set.";
+export const UPSCALE_SUCC_COMPLETED =
+  "The image has been successfully upscaled!";
 
-export default {
-    PROCESSING_IMAGE,
-    IMAGE_APPLIED_SUCC,
-    FETCHING,
-    BALANCE_IS,
-    KEY_SET,
+const MESSAGES = {
+  PROCESSING_IMAGE,
+  KEY_SET,
+  BACKGROUND_SUCC_REMOVED,
+  UPSCALE_SUCC_COMPLETED
 };
+
+export default MESSAGES;    

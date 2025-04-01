@@ -4,9 +4,9 @@ import { Button } from "@components/index";
 import { BtnType } from "../../types/enums";
 import {
   KEY_WRONG_ERR,
-  PRICING,
   KEY_SET,
   TYPE_SET_KEY,
+  APPS,
 } from "@constants/index";
 import "./styles.scss";
 
@@ -20,12 +20,16 @@ const ChangeAPIkey: React.FC<props> = ({ changeKey, needToSetUpdateBalance }) =>
   const [error, setError] = useState<string>();
   const [success, setSuccess] = useState<string>();
 
+  const safeApiKeyRegex = /^[A-Za-z0-9._-]+$/;
+
   const handleInputChange = (
     event: React.ChangeEvent<HTMLInputElement>
   ): void => {
     const newValue = event.target.value;
-    setValue(newValue);
-    setMessagesAsDefault();
+    if (safeApiKeyRegex.test(newValue) || newValue === "") {
+      setValue(newValue);
+      setMessagesAsDefault();
+    }
   };
 
   const setMessagesAsDefault = () => {
@@ -33,6 +37,7 @@ const ChangeAPIkey: React.FC<props> = ({ changeKey, needToSetUpdateBalance }) =>
   };
 
   const checkKey = async () => {
+    if (!value) return;
     const response: GetBalanceReturnType = await getBalance(value);
     if (response.success) {
       setSuccess(KEY_SET);
@@ -67,7 +72,7 @@ const ChangeAPIkey: React.FC<props> = ({ changeKey, needToSetUpdateBalance }) =>
       />
       <Button
         type={BtnType.NEW_KEY}
-        cb={() => window.open(PRICING, "_blank")}
+        cb={() => window.open(APPS, "_blank")}
       />
     </div>
   );
