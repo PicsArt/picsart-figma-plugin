@@ -13,6 +13,15 @@ figma.ui.onmessage = (response) => {
   if (response === NO_INTERNET_ERR) figma.closePlugin(NO_INTERNET_ERR_MSG);
 };
 
+// figma.notify("⚠️ Your balance is not enough to remove the background.", { 
+//   button: {
+//     text: "➕ Add Credits",
+//     action: () => {
+//       figma.ui.postMessage({ type: "open-link" });
+//     }
+//   }
+// });
+
 // Need to take time while UI is drawing that you can postmessage with it 
 setTimeout(async () => {
   figma.on("selectionchange", () => {

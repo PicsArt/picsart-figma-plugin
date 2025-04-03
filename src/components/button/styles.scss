@@ -17,24 +17,27 @@
   }
 
   .remove-bg-active,
+  .remove-bg-no-credits,
   .remove-bg-disabled,
   .continue,
   .upscale-active,
+  .upscale-no-credits,
   .upscale-disabled,
   .submit-active,
   .submit-disabled,
   .new-key,
   .change-key,
+  .add-credits,
   .buy-more {
     cursor: pointer;
     transition: background-color 0.3s, border-color 0.3s;
   }
 
-  .remove-bg-active {
+  .remove-bg-active, .remove-bg-no-credits {
     color: #ffffff;
     background-color: #520be5;
   }
-  .remove-bg-active:hover {
+  .remove-bg-active:hover, .remove-bg-no-credits:hover {
     background-color: #3e07c5;
   }
 
@@ -55,11 +58,11 @@
     background-color: #3e07c5;
   }
 
-  .upscale-active {
+  .upscale-active, .upscale-no-credits {
     color: #ffffff;
     background-color: #520be5;
   }
-  .upscale-active:hover {
+  .upscale-active:hover, .upscale-no-credits:hover {
     background-color: #3e07c5;
   }
 
@@ -106,11 +109,11 @@
     border-color: #3e07c5;
   }
 
-  .buy-more {
+  .buy-more, .add-credits {
     color: #ffffff;
     background-color: #520be5;
   }
-  .buy-more:hover {
+  .buy-more:hover, .add-credits:hover {
     background-color: #3e07c5;
   }
 }
@@ -131,24 +134,27 @@
   }
 
   .remove-bg-active,
+  .remove-bg-no-credits,
   .remove-bg-disabled,
   .continue,
   .upscale-active,
+  .upscale-no-credits,
   .upscale-disabled,
   .submit-active,
   .submit-disabled,
   .new-key,
   .change-key,
+  .add-credits,
   .buy-more {
     cursor: pointer;
     transition: background-color 0.3s, border-color 0.3s;
   }
 
-  .remove-bg-active {
+  .remove-bg-active , .remove-bg-no-credits{
     color: #000000;
     background-color: #bd99f8;
   }
-  .remove-bg-active:hover {
+  .remove-bg-active:hover, .remove-bg-no-credits:hover {
     background-color: #5a1f9e;
   }
 
@@ -168,11 +174,11 @@
     background-color: #5a1f9e;
   }
 
-  .upscale-active {
+  .upscale-active, .upscale-no-credits {
     color: #000000;
     background-color: #bd99f8;
   }
-  .upscale-active:hover {
+  .upscale-active:hover, .upscale-no-credits:hover {
     background-color: #5a1f9e;
   }
 
@@ -212,11 +218,11 @@
     background-color: #5a1f9e;
   }
 
-  .buy-more {
+  .buy-more, .add-credits {
     color: #000000;
     background-color: #bd99f8;
   }
-  .buy-more:hover {
+  .buy-more:hover, .add-credits:hover {
     background-color: #5a1f9e;
   }
 }

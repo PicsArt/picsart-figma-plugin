@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import Selector from "@components/selector/Selector";
 import { enhanceImage, sendMessageToSandBox } from "@api/index";
 import {
+  PRICING,
   PROCESSING_IMAGE,
   TYPE_IMAGEBYTES,
   TYPE_NOTIFY,
@@ -31,7 +32,13 @@ const Upscale: React.FC<UpscaleProps> = ({
   const [scaleFactor, setScaleFactor] = useState(2);
 
   const handleSubmit = async () => {
-    if (!imageBytes || !gottenKey || !imageBytes.length || isCreditsInsufficient) return;
+    if (
+      !imageBytes ||
+      !gottenKey ||
+      !imageBytes.length ||
+      isCreditsInsufficient
+    )
+      return;
     setLoading(true);
 
     if (!scaleFactor) return;
@@ -53,20 +60,32 @@ const Upscale: React.FC<UpscaleProps> = ({
     setScaleFactor(Number(val));
   };
 
+  let btnTpe = null;
+  let cb = () => {};
+  if (imageBytes && imageBytes.length && gottenKey && !isCreditsInsufficient) {
+    btnTpe = BtnType.UPSCALE_ACTIVE;
+    cb = handleSubmit;
+  } else if (
+    imageBytes &&
+    imageBytes.length &&
+    gottenKey &&
+    isCreditsInsufficient
+  ) {
+    btnTpe = BtnType.UPSCALE_NO_CREDITS;
+    cb = () => {
+      window.open(PRICING, "_blank");
+    };
+  } else {
+    btnTpe = BtnType.UPSCALE_DISABLED;
+  }
+
   return (
     <div className="upscale-container">
       <div className="upscale-header">
         <span className="header-text">Choose enhance factor</span>
         <Selector onChange={handleOnChange} options={options} text="2" />
       </div>
-      <Button
-        type={
-          imageBytes && imageBytes.length > 0 && gottenKey && !isCreditsInsufficient
-            ? BtnType.UPSCALE_ACTIVE
-            : BtnType.UPSCALE_DISABLED
-        }
-        cb={handleSubmit}
-      />
+      <Button type={btnTpe} cb={cb} />
       <p className="upscale-text">
         Enhance Factor adjusts the level of improvement, such as image quality
         and resolution

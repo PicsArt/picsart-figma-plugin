@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { removeBackgroundApi, sendMessageToSandBox } from "@api/index";
 import {
+  PRICING,
   PROCESSING_IMAGE,
   TYPE_IMAGEBYTES,
   TYPE_NOTIFY,
@@ -29,7 +30,13 @@ const RemoveBackground: React.FC<RemoveBackgroundProps> = ({
 }) => {
   const [loading, setLoading] = useState<boolean>(false);
   const processImage = async () => {
-    if (!imageBytes || !gottenKey || !imageBytes.length || isCreditsInsufficient) return;
+    if (
+      !imageBytes ||
+      !gottenKey ||
+      !imageBytes.length ||
+      isCreditsInsufficient
+    )
+      return;
     setLoading(true);
     sendMessageToSandBox(true, PROCESSING_IMAGE, TYPE_NOTIFY);
 
@@ -40,6 +47,25 @@ const RemoveBackground: React.FC<RemoveBackgroundProps> = ({
     needToSetUpdateBalance((prev) => ++prev);
   };
 
+  let btnTpe = null;
+  let cb = () => {};
+  if (imageBytes && imageBytes.length && gottenKey && !isCreditsInsufficient) {
+    btnTpe = BtnType.REMOVE_BG_ACTIVE;
+    cb = processImage;
+  } else if (
+    imageBytes &&
+    imageBytes.length &&
+    gottenKey &&
+    isCreditsInsufficient
+  ) {
+    btnTpe = BtnType.REMOVE_BG_NO_CREDITS;
+    cb = () => {
+      window.open(PRICING, "_blank");
+    };
+  } else {
+    btnTpe = BtnType.REMOVE_BG_DISABLED;
+  }
+
   return (
     <div
       style={{
@@ -49,17 +75,7 @@ const RemoveBackground: React.FC<RemoveBackgroundProps> = ({
       <ImageSelectionBanner
         isImageSelected={imageBytes && imageBytes.length > 0}
       />
-      <Button
-        type={
-          imageBytes &&
-          imageBytes.length > 0 &&
-          gottenKey &&
-          !isCreditsInsufficient
-            ? BtnType.REMOVE_BG_ACTIVE
-            : BtnType.REMOVE_BG_DISABLED
-        }
-        cb={processImage}
-      />
+      <Button type={btnTpe} cb={cb} />
       {loading && <LoadingSpinner />}
     </div>
   );

@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { getBalance } from "@api/index";
 import { PRICING } from "@constants/url";
+import { BtnType } from "../../types/enums";
+import { Button } from "@components/index";
 import "./styles.scss";
-import { INSUFFICIENT_CREDITS } from "@ui_constants/texts";
 interface Props {
   gottenKey: string;
   needToUpdateBalance: number;
@@ -34,6 +35,7 @@ const BalanceBanner: React.FC<Props> = ({
     };
 
     getBalanceRequest();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gottenKey, needToUpdateBalance]);
 
   return (
@@ -42,30 +44,41 @@ const BalanceBanner: React.FC<Props> = ({
         <span className="balance-text">Balance</span>
         <span className="credits-text">
           {keyBalance} credits{" "}
-          {isCreditsInsufficient && (
-            <span className="error-text">{INSUFFICIENT_CREDITS}</span>
-          )}
         </span>
       </div>
-      <div
-        className="plus-container"
-        onClick={() => window.open(PRICING, "_blank")}
-      >
-        <svg
-          width="12"
-          height="12"
-          viewBox="0 0 12 12"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            d="M5.5 5.5V0.5H6.5V5.5H11.5V6.5H6.5V11.5H5.5V6.5H0.5V5.5H5.5Z"
-            fill="#520BE5"
+      {isCreditsInsufficient ? (
+        <div style={{ width: 180, height: 30 }}>
+          <Button
+            type={BtnType.ADD_CREDITS}
+            cb={() => window.open(PRICING, "_blank")}
           />
-        </svg>
-      </div>
+        </div>
+      ) : (
+        <div
+          className="plus-container"
+          onClick={() => window.open(PRICING, "_blank")}
+        >
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 12 12"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M5.5 5.5V0.5H6.5V5.5H11.5V6.5H6.5V11.5H5.5V6.5H0.5V5.5H5.5Z"
+              fill="#520BE5"
+            />
+          </svg>
+        </div>
+      )}
     </div>
   );
 };
+
+
+
+
+
 
 export default BalanceBanner;
