@@ -17,3 +17,5 @@ export const PRICING = (`https://console.picsart.io/usage${QUERY_PARAMS}`) as co
 export const PICSART_IO = (`https://picsart.io${QUERY_PARAMS}`) as const;
 export const CONSOLE = (`https://console.picsart.io${QUERY_PARAMS}`) as const;
 export const LEARN_MORE = (`https://docs.picsart.io/docs/creative-apis-get-api-key${QUERY_PARAMS}`) as const;
+export const APPS = (`https://console.picsart.io/apps${QUERY_PARAMS}`) as const;
+ 

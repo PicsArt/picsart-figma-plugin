@@ -1,4 +1,5 @@
 export const TAB_REMOVE_BACKGROUND = "Remove Background";
+export const TAB_REMOVE_BACKGROUND_INSTANTLY = "Remove Background Instantly";
 export const TAB_UPSCALE = "Upscale";
 export const TAB_ACCOUNT = "Account Balance";
 export const TAB_SUPPORT = "Support";
@@ -10,6 +11,7 @@ const TABS = {
   TAB_ACCOUNT,
   TAB_SUPPORT,
   TAB_SET_API_KEY,
+  TAB_REMOVE_BACKGROUND_INSTANTLY
 };
 
 export default TABS;

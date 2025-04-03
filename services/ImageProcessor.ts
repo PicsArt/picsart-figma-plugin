@@ -1,14 +1,31 @@
-import { IMAGE_APPLIED_SUCC, NO_NODE_SELECTED_ERR, SELCTED_NODE_NOFILSS_OR_RESIZE_SUPPORT_ERR } from  "../constants/index";
+import {
+  BACKGROUND_SUCC_REMOVED,
+  NO_NODE_SELECTED_ERR,
+  SELCTED_NODE_NOFILSS_OR_RESIZE_SUPPORT_ERR,
+  TYPE_IMAGEBYTES,
+  UPSCALE_SUCC_COMPLETED,
+} from "../constants/index";
+
+export const getImageSelectionStatus = async () => {
+  return await processImage(figma);
+};
+
+export const sendImageSelectionStatus = async () => {
+  figma.ui.postMessage({
+    type: TYPE_IMAGEBYTES,
+    payload: await processImage(figma),
+  });
+};
+
 /**
  * Processes the selected node to extract the image bytes if it has an image fill.
  * This function checks the selected node, finds the image fill, and retrieves the image bytes for further processing.
- * 
- * @param figma - The Figma Plugin API object.
- * @returns A promise resolving to the image bytes or undefined if no image is found.
  */
-const processImage = async (figma: PluginAPI) : Promise<Uint8Array | undefined> => {
+const processImage = async (
+  figma: PluginAPI
+): Promise<Uint8Array | undefined> => {
   const selectedNodes = figma.currentPage.selection;
-  
+
   if (selectedNodes.length === 0) {
     return;
   }
@@ -16,11 +33,12 @@ const processImage = async (figma: PluginAPI) : Promise<Uint8Array | undefined> 
 
   let types = ["RECTANGLE", "ELLIPSE", "POLYGON", "STAR", "VECTOR", "TEXT"];
   if (types.indexOf(selectedNode.type) > -1) {
-
-    if ('fills' in selectedNode) {
+    if ("fills" in selectedNode) {
       const fills = selectedNode.fills as ReadonlyArray<Paint>;
 
-      const imageFill = fills.find((fill): fill is ImagePaint => fill.type === 'IMAGE');
+      const imageFill = fills.find(
+        (fill): fill is ImagePaint => fill.type === "IMAGE"
+      );
 
       if (imageFill && imageFill.imageHash) {
         const image = figma.getImageByHash(imageFill.imageHash);
@@ -28,31 +46,32 @@ const processImage = async (figma: PluginAPI) : Promise<Uint8Array | undefined> 
         return imageBytes;
       }
     }
-  } else {
-    figma.closePlugin();
   }
 };
 
 /**
  * Sets the fetched image as a fill on the selected node and resizes the node if a scaleFactor is provided.
  * This function takes an image in Uint8Array format and applies it to the selected node, optionally resizing the node.
- * 
- * @param uint8Array - The Uint8Array of the image to be applied to the node.
- * @param scaleFactor - Optional scaling factor to resize the node.
  */
-const setFetchedImage = async (uint8Array: Uint8Array, scaleFactor: number | undefined) => {
+const setFetchedImage = async (
+  uint8Array: Uint8Array,
+  scaleFactor: number | undefined
+) =>  {
   const selectedNodes = figma.currentPage.selection;
 
   if (selectedNodes.length === 0) {
     figma.notify(NO_NODE_SELECTED_ERR);
-    return;
+    return "";
   }
 
   const selectedNode = selectedNodes[0];
 
   if ("fills" in selectedNode && "resize" in selectedNode) {
     if (typeof scaleFactor == "number" && scaleFactor > 1) {
-      selectedNode.resize(selectedNode.width * scaleFactor, selectedNode.height * scaleFactor);
+      selectedNode.resize(
+        selectedNode.width * scaleFactor,
+        selectedNode.height * scaleFactor
+      );
     }
 
     const newImage = figma.createImage(uint8Array);
@@ -60,15 +79,21 @@ const setFetchedImage = async (uint8Array: Uint8Array, scaleFactor: number | und
     const imageFill: ImagePaint = {
       type: "IMAGE",
       imageHash: newImage.hash,
-      scaleMode: "FILL", 
+      scaleMode: "FILL",
     };
 
     (selectedNode as GeometryMixin).fills = [imageFill];
 
-    figma.notify(IMAGE_APPLIED_SUCC);
+    if (scaleFactor) {
+      return UPSCALE_SUCC_COMPLETED;
+    } else {
+      return BACKGROUND_SUCC_REMOVED;
+    }
   } else {
-    figma.notify(SELCTED_NODE_NOFILSS_OR_RESIZE_SUPPORT_ERR);
+    return SELCTED_NODE_NOFILSS_OR_RESIZE_SUPPORT_ERR;
   }
 };
 
-export default { processImage, setFetchedImage };
+const actions = { processImage, setFetchedImage };
+
+export default actions;

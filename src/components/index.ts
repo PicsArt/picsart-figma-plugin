@@ -4,6 +4,7 @@ export { default as Account } from './account';
 export { default as ChangeAPIkey } from './changeAPIkey';
 export { default as Support } from './support';
 export { default as RemoveBackground } from './removeBackground';
+export { default as RemoveBackgroundHidden } from './removeBackgroundHidden';
 export { default as Upscale } from './upscale';
 export { default as LoadingSpinner } from './loadingSpinner';
 export { default as Navbar } from './navbar';
