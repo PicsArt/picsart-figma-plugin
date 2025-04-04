@@ -128,6 +128,7 @@ const App = () => {
     };
 
     window.addEventListener("message", messageHandler);
+
     return () => {
       window.removeEventListener("message", messageHandler);
     };

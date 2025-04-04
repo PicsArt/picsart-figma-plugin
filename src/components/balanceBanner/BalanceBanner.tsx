@@ -18,6 +18,7 @@ const BalanceBanner: React.FC<Props> = ({
   setIsCreditsInsufficient,
 }) => {
   const [keyBalance, setKeyBalance] = useState<number | null>(null);
+  const [checkBalanceAgain, setCheckBalanceAgain] = useState<number>(0);
 
   useEffect(() => {
     const getBalanceRequest = async () => {
@@ -35,16 +36,29 @@ const BalanceBanner: React.FC<Props> = ({
     };
 
     getBalanceRequest();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gottenKey, needToUpdateBalance]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checkBalanceAgain, gottenKey, needToUpdateBalance]);
+
+  useEffect(() => {
+    const checkIfUserCameBack = () => {
+      if (document.visibilityState === "visible") {
+        setCheckBalanceAgain((prev) => prev + 1);
+      }
+    };
+    document.addEventListener("visibilitychange", () => {
+      checkIfUserCameBack();
+    });
+
+    return () => {
+      document.removeEventListener("visibilitychange", checkIfUserCameBack);
+    };
+  }, []);
 
   return (
     <div className="balance-container">
       <div className="text-container">
         <span className="balance-text">Balance</span>
-        <span className="credits-text">
-          {keyBalance} credits{" "}
-        </span>
+        <span className="credits-text">{keyBalance} credits </span>
       </div>
       {isCreditsInsufficient ? (
         <div style={{ width: 180, height: 30 }}>
@@ -75,10 +89,5 @@ const BalanceBanner: React.FC<Props> = ({
     </div>
   );
 };
-
-
-
-
-
 
 export default BalanceBanner;
