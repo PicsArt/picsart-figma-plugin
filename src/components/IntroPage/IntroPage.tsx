@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { getBalance, sendMessageToSandBox } from "@api/index";
 import "./styles.scss";
-import { CONSOLE, PICSART_IO } from "@constants/url";
+import { CONSOLE, LEARN_MORE, PICSART_IO } from "@constants/url";
+import { TYPE_SET_KEY } from "@constants/types";
 
 const IntroPage: React.FC = () => {
   const [value, setValue] = useState<string>("");
@@ -25,10 +26,10 @@ const IntroPage: React.FC = () => {
   const checkKey = async () => {
     const response: GetBalanceReturnType = await getBalance(value);
     if (response.success) {
-      sendMessageToSandBox(true, value);
+      sendMessageToSandBox(true, value, TYPE_SET_KEY);
     } else {
       setError(response.msg as string);
-      sendMessageToSandBox(false, response.msg as string);
+      sendMessageToSandBox(false, response.msg as string, TYPE_SET_KEY);
     }
   };
 
@@ -82,7 +83,7 @@ const IntroPage: React.FC = () => {
               Continue
             </button>
           </div>
-          <a className="key-learn-more" href="#">
+          <a className="key-learn-more" href={LEARN_MORE} rel="noreferrer" target="_blank">
             Learn about API key
           </a>
         </div>

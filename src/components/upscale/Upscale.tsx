@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import Selector from "@components/selector/Selector";
 import { enhanceImage, sendMessageToSandBox } from "@api/index";
 import {
+  PRICING,
   PROCESSING_IMAGE,
   TYPE_IMAGEBYTES,
   TYPE_NOTIFY,
@@ -14,7 +15,7 @@ interface UpscaleProps {
   gottenKey: string;
   imageBytes: Uint8Array;
   setImageBytes: (bytes: Uint8Array) => void;
-  setUpdateBalance: (arg: (number: number) => number) => void;
+  needToSetUpdateBalance: (arg: (number: number) => number) => void;
   isCreditsInsufficient: boolean;
 }
 const options = ["2", "4", "6", "8"];
@@ -23,7 +24,7 @@ const Upscale: React.FC<UpscaleProps> = ({
   gottenKey,
   imageBytes,
   setImageBytes,
-  setUpdateBalance,
+  needToSetUpdateBalance,
   isCreditsInsufficient,
 }) => {
   const [loading, setLoading] = useState<boolean>(false);
@@ -31,7 +32,13 @@ const Upscale: React.FC<UpscaleProps> = ({
   const [scaleFactor, setScaleFactor] = useState(2);
 
   const handleSubmit = async () => {
-    if (!imageBytes || !imageBytes.length || !isCreditsInsufficient) return;
+    if (
+      !imageBytes ||
+      !gottenKey ||
+      !imageBytes.length ||
+      isCreditsInsufficient
+    )
+      return;
     setLoading(true);
 
     if (!scaleFactor) return;
@@ -46,12 +53,31 @@ const Upscale: React.FC<UpscaleProps> = ({
       scaleFactor
     );
     setLoading(false);
-    setUpdateBalance((prev) => ++prev);
+    needToSetUpdateBalance((prev) => ++prev);
   };
 
   const handleOnChange = (val: string) => {
     setScaleFactor(Number(val));
   };
+
+  let btnTpe = null;
+  let cb = () => {};
+  if (imageBytes && imageBytes.length && gottenKey && !isCreditsInsufficient) {
+    btnTpe = BtnType.UPSCALE_ACTIVE;
+    cb = handleSubmit;
+  } else if (
+    imageBytes &&
+    imageBytes.length &&
+    gottenKey &&
+    isCreditsInsufficient
+  ) {
+    btnTpe = BtnType.UPSCALE_NO_CREDITS;
+    cb = () => {
+      window.open(PRICING, "_blank");
+    };
+  } else {
+    btnTpe = BtnType.UPSCALE_DISABLED;
+  }
 
   return (
     <div className="upscale-container">
@@ -59,14 +85,7 @@ const Upscale: React.FC<UpscaleProps> = ({
         <span className="header-text">Choose enhance factor</span>
         <Selector onChange={handleOnChange} options={options} text="2" />
       </div>
-      <Button
-        type={
-          imageBytes && imageBytes.length > 0 && gottenKey && !isCreditsInsufficient
-            ? BtnType.UPSCALE_ACTIVE
-            : BtnType.UPSCALE_DISABLED
-        }
-        cb={handleSubmit}
-      />
+      <Button type={btnTpe} cb={cb} />
       <p className="upscale-text">
         Enhance Factor adjusts the level of improvement, such as image quality
         and resolution

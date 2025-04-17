@@ -1,13 +1,16 @@
 import React from "react";
 import "./styles.scss";
 import {
+  ADD_CREDITS_BTN_TEXT,
   BUY_MORE_BTN_TEXT,
   CHANGE_KEY_BTN_TEXT,
   CONTINUE_BTN_TEXT,
   GET_NEW_KEY_BTN_TEXT,
   REMOVE_BG_BTN_TEXT,
+  REMOVE_BG_NO_CREDITS_BTN_TEXT,
   SUBMIT_KEY_BTN_TEXT,
   UPSCALE_BTN_TEXT,
+  UPSCALE_NO_CREDITS_BTN_TEXT,
 } from "@ui_constants/texts";
 
 import { BtnType } from "./../../types/enums";
@@ -18,16 +21,19 @@ interface Props {
 }
 
 const btnTypes: Record<BtnType, string> = {
-  "remove-bg-active": REMOVE_BG_BTN_TEXT,
-  "remove-bg-disabled": REMOVE_BG_BTN_TEXT,
-  "upscale-active": UPSCALE_BTN_TEXT,
-  "upscale-disabled": UPSCALE_BTN_TEXT,
-  continue: CONTINUE_BTN_TEXT,
-  "buy-more": BUY_MORE_BTN_TEXT,
-  "change-key": CHANGE_KEY_BTN_TEXT,
-  "new-key": GET_NEW_KEY_BTN_TEXT,
-  "submit-active": SUBMIT_KEY_BTN_TEXT,
-  "submit-disabled": SUBMIT_KEY_BTN_TEXT,
+  [BtnType.REMOVE_BG_ACTIVE]: REMOVE_BG_BTN_TEXT,
+  [BtnType.REMOVE_BG_DISABLED]: REMOVE_BG_BTN_TEXT,
+  [BtnType.REMOVE_BG_NO_CREDITS]: REMOVE_BG_NO_CREDITS_BTN_TEXT,
+  [BtnType.UPSCALE_ACTIVE]: UPSCALE_BTN_TEXT,
+  [BtnType.UPSCALE_NO_CREDITS]: UPSCALE_NO_CREDITS_BTN_TEXT,
+  [BtnType.UPSCALE_DISABLED]: UPSCALE_BTN_TEXT,
+  [BtnType.CONTINUE]: CONTINUE_BTN_TEXT,
+  [BtnType.BUY_MORE]: BUY_MORE_BTN_TEXT,
+  [BtnType.CHANGE_KEY]: CHANGE_KEY_BTN_TEXT,
+  [BtnType.NEW_KEY]: GET_NEW_KEY_BTN_TEXT,
+  [BtnType.SUBMIT_ACTIVE]: SUBMIT_KEY_BTN_TEXT,
+  [BtnType.SUBMIT_DISABLED]: SUBMIT_KEY_BTN_TEXT,
+  [BtnType.ADD_CREDITS]: ADD_CREDITS_BTN_TEXT,
 };
 
 const button: React.FC<Props> = ({ type, cb }) => {
