@@ -16,7 +16,7 @@
       "https://fonts.gstatic.com",
       "https://api.picsart.io",
       "https://picsart.io",
-      "https://cdn.picsart.io",
+      "https://cdn.picsart.io"
     ]
   },
   "menu": [
@@ -30,6 +30,13 @@
     {
       "name": "Enhance / Upscale",
       "command": "UPSCALE"
+    },
+    {
+      "separator": true
+    },
+    {
+      "name": "Generate Image",
+      "command": "GENERATE-IMAGE"
     },
     {
       "separator": true

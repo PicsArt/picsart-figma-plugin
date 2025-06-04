@@ -4,6 +4,7 @@ export const COMMAND_ACCOUNT = "ACCOUNT";
 export const COMMAND_SUPPORT = "SUPPORT";
 export const COMMAND_INTRO = "INTRO";
 export const COMMAND_CHANGE_API_KEY = "CHANGE_API_KEY";
+export const COMMAND_GENERATE_IMAGE = "GENERATE-IMAGE";
 
 export default {
     COMMAND_UPSCALE,
@@ -11,7 +12,8 @@ export default {
     COMMAND_ACCOUNT,
     COMMAND_SUPPORT,
     COMMAND_INTRO,
-    COMMAND_CHANGE_API_KEY
+    COMMAND_CHANGE_API_KEY,
+    COMMAND_GENERATE_IMAGE
 }
 
     

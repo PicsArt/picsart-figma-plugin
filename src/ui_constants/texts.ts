@@ -4,8 +4,9 @@ export const IMAGE_SELECTED = "The image is selected" as const
 export const INSUFFICIENT_CREDITS = "Insufficient credits" as const 
 
 // Tabs
-export const REMOVE_BG_TAB = "Remove Background" as const 
+export const REMOVE_BG_TAB = "Remove BG" as const 
 export const UPSCALE_TAB = "Upscale" as const 
+export const TEXT_TO_IMAGE_TAB = "Generate Image" as const 
 
 // btn Texts
 export const REMOVE_BG_BTN_TEXT = "Remove Background" as const 

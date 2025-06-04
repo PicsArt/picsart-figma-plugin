@@ -1,9 +1,11 @@
 import React, { useState } from "react";
-import { REMOVE_BG_TAB, UPSCALE_TAB } from "@ui_constants/texts";
-import { TabType } from "./../../types/enums";
-import "./styles.scss";
 import useOutsideClick from "@hooks/useOutsideClick";
+import { REMOVE_BG_TAB, UPSCALE_TAB, TEXT_TO_IMAGE_TAB } from "@ui_constants/texts";
+import { TabType } from "./../../types/enums";
 import { HELP_CENTER } from "@constants/url";
+import "./styles.scss";
+import { sendMessageToSandBox } from "@api/index";
+import { TYPE_TEXT_TO_IMAGE_TAB } from "@constants/types";
 
 interface Props {
   gottenKey: string;
@@ -20,6 +22,13 @@ const Navbar: React.FC<Props> = ({ gottenKey, tab, changeTab }) => {
   };
 
   const handleMenuClick = () => {
+    if (tab === TabType.TEXT_TO_IMAGE) {
+      sendMessageToSandBox(
+        true,
+        "Generate Image",
+        TYPE_TEXT_TO_IMAGE_TAB,
+      );
+    }
     setShowMenu((prev) => !prev);
   };
 
@@ -41,6 +50,14 @@ const Navbar: React.FC<Props> = ({ gottenKey, tab, changeTab }) => {
           onClick={() => handleSelect(TabType.UPSCALE)}
         >
           {UPSCALE_TAB}
+        </span>
+        <span
+          className={`option ${
+            tab === TabType.TEXT_TO_IMAGE ? "selected" : ""
+          }`}
+          onClick={() => handleSelect(TabType.TEXT_TO_IMAGE)}
+        >
+          {TEXT_TO_IMAGE_TAB}
         </span>
       </div>
       <div className="hamburger-menu" onClick={handleMenuClick}>

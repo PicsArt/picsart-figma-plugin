@@ -11,8 +11,8 @@ import {
   RemoveBackground,
   RemoveBackgroundHidden,
   Support,
-  TextToImage,
   Upscale,
+  GenerateImage,
 } from "@components/index";
 import { TabType } from "./types/enums";
 import {
@@ -84,6 +84,13 @@ const App = () => {
           />
         );
         break;
+      case TabType.TEXT_TO_IMAGE:
+        setPage(<GenerateImage
+            gottenKey={apiKey}
+            needToSetUpdateBalance={needToSetUpdateBalance}
+            isCreditsInsufficient={isCreditsInsufficient}
+          />);
+        break;
       case TabType.ACCOUNT:
         setPage(<Account gottenKey={apiKey} changeTab={handleTabChange} />);
         break;
@@ -138,6 +145,9 @@ const App = () => {
     setPageLogic();
   }, [tab, action, apiKey, imageBytes, isCreditsInsufficient]);
 
+  
+
+
   return (
     <>
       <div>
@@ -147,7 +157,7 @@ const App = () => {
       </div>
       {apiKey && (
         <div>
-          {(tab === TabType.REMOVE_BACKGROUND || tab === TabType.UPSCALE) && (
+          {(tab === TabType.REMOVE_BACKGROUND || tab === TabType.UPSCALE || tab === TabType.TEXT_TO_IMAGE) && (
             <BalanceBanner
               gottenKey={apiKey}
               needToUpdateBalance={needToUpdateBalance}
@@ -155,7 +165,6 @@ const App = () => {
               setIsCreditsInsufficient={setIsCreditsInsufficient}
             />
           )}
-          <TextToImage />
         </div>
       )}
     </>

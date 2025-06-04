@@ -1,6 +1,7 @@
 export enum TabType {
   TAB_REMOVE_BACKGROUND_INSTANTLY = "Remove Background Instantly",
-  REMOVE_BACKGROUND = "Remove Background",
+  REMOVE_BACKGROUND = "Remove BG",
+  TEXT_TO_IMAGE = "Generate image",
   UPSCALE = "Upscale",
   ACCOUNT = "Account Balance",
   SUPPORT = "Support",
