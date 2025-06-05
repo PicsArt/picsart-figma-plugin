@@ -8,6 +8,92 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+  
+  &.expanded {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    margin: 0;
+    padding: 16px;
+    background-color: transparent;
+    z-index: 1000;
+    box-sizing: border-box;
+    gap: 12px;
+  }
+}
+
+// Hide preset tags and advanced settings when textarea is expanded
+.generate-image-container:has(.prompt-textarea.expanded) {
+  .preset-tags,
+  .advanced-settings {
+    display: none;
+  }
+}
+
+// Expanded mode styles
+.expanded-header {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.collapse-icon {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+  }
+}
+
+.expanded-textarea {
+  flex: 1;
+  width: 100%;
+  padding: 16px;
+  border: 1px solid #5A00EE;
+  border-radius: 8px;
+  font-family: "Inter";
+  font-size: 14px;
+  line-height: 1.5;
+  resize: none;
+  overflow: auto;
+  box-sizing: border-box;
+
+  &:focus {
+    outline: none;
+    border-color: #5A00EE;
+    box-shadow: 0 0 0 2px rgba(90, 0, 238, 0.2);
+  }
+
+  &::placeholder {
+    color: #9E9E9E;
+  }
+
+  // Custom scrollbar styles
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: rgba(90, 0, 238, 0.3);
+    border-radius: 2px;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: rgba(90, 0, 238, 0.5);
+  }
 }
 
 // Prompt section
@@ -50,15 +136,15 @@
   height: 20px;
   border-radius: 4px;
   transition: background-color 0.2s;
-
-  &:hover {
-    background-color: rgba(90, 0, 238, 0.1);
-  }
 }
 
 .expand-icon {
   width: 18px;
   height: 18px;
+  
+  svg {
+    transition: transform 0.3s ease;
+  }
 }
 
 // Textarea container
@@ -78,6 +164,8 @@
   line-height: 1.4;
   resize: vertical;
   box-sizing: border-box;
+  overflow: auto;
+  transition: all 0.3s ease;
   
   &::placeholder {
     color: #9E9E9E;
@@ -88,6 +176,33 @@
     border-color: #5A00EE;
     box-shadow: 0 0 0 2px rgba(90, 0, 238, 0.2);
   }
+
+  &.expanded {
+    max-height: 400px;
+    height: 400px;
+    font-size: 14px;
+    line-height: 1.5;
+    border-color: #5A00EE;
+    padding: 16px 40px 16px 16px;
+  }
+
+  // Custom scrollbar styles for regular textarea
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: rgba(90, 0, 238, 0.3);
+    border-radius: 2px;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: rgba(90, 0, 238, 0.5);
+  }
 }
 
 .textarea-icons {
@@ -96,6 +211,12 @@
   right: 8px;
   display: flex;
   gap: 4px;
+  transition: top 0.3s ease;
+  
+  .prompt-textarea.expanded + & {
+    top: 12px;
+    right: 12px;
+  }
 }
 
 .edit-icon {
@@ -108,10 +229,6 @@
   justify-content: center;
   border-radius: 4px;
   transition: background-color 0.2s;
-
-  &:hover {
-    background-color: rgba(90, 0, 238, 0.1);
-  }
 }
 
 .tab-hint {
@@ -127,6 +244,11 @@
   font-weight: 500;
   color: #9E9E9E;
   pointer-events: none;
+  transition: bottom 0.3s ease;
+  
+  .prompt-textarea.expanded + .textarea-icons + & {
+    bottom: 12px;
+  }
 }
 
 // Preset tags
@@ -134,6 +256,7 @@
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+  transition: opacity 0.3s ease;
 }
 
 .preset-tag {
@@ -162,6 +285,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  transition: opacity 0.3s ease;
 }
 
 .settings-toggle {
@@ -215,7 +339,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  margin-left: 44px;
+  margin-left: 0;
 }
 
 .option-group {
@@ -251,65 +375,6 @@
   }
 }
 
-// Fullscreen mode
-.generate-image-fullscreen {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: white;
-  z-index: 1000;
-  display: flex;
-  flex-direction: column;
-  padding: 16px;
-  box-sizing: border-box;
-}
-
-.fullscreen-header {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 16px;
-}
-
-.close-fullscreen {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 8px;
-  border-radius: 4px;
-  transition: background-color 0.2s;
-
-  &:hover {
-    background-color: rgba(0, 0, 0, 0.1);
-  }
-}
-
-.fullscreen-textarea {
-  flex: 1;
-  width: 100%;
-  padding: 16px;
-  border: 1px solid #CBCBCB;
-  border-radius: 8px;
-  font-family: "Inter";
-  font-size: 14px;
-  line-height: 1.5;
-  resize: none;
-  margin-bottom: 16px;
-
-  &:focus {
-    outline: none;
-    border-color: #5A00EE;
-    box-shadow: 0 0 0 2px rgba(90, 0, 238, 0.2);
-  }
-}
-
-.fullscreen-button {
-  width: 100%;
-  max-width: 300px;
-  margin: 0 auto;
-}
-
 // Light theme styles
 .figma-light {
   .prompt-label,
@@ -328,6 +393,10 @@
     }
 
     &:focus {
+      border-color: #5A00EE;
+    }
+
+    &.expanded {
       border-color: #5A00EE;
     }
   }
@@ -364,34 +433,6 @@
       border-color: #5A00EE;
     }
   }
-
-  .generate-image-fullscreen {
-    background-color: white;
-  }
-
-  .fullscreen-textarea {
-    background-color: white;
-    color: #333333;
-    border-color: #CBCBCB;
-
-    &:focus {
-      border-color: #5A00EE;
-    }
-  }
-
-  .close-fullscreen {
-    color: #333333;
-
-    &:hover {
-      background-color: rgba(0, 0, 0, 0.1);
-    }
-  }
-
-  .info-icon:hover,
-  .expand-icon:hover,
-  .edit-icon:hover {
-    background-color: rgba(90, 0, 238, 0.1);
-  }
 }
 
 // Dark theme styles
@@ -413,6 +454,18 @@
 
     &:focus {
       border-color: #BD99F8;
+    }
+
+    &.expanded {
+      border-color: #BD99F8;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: rgba(189, 153, 248, 0.3);
+    }
+
+    &::-webkit-scrollbar-thumb:hover {
+      background: rgba(189, 153, 248, 0.5);
     }
   }
 
@@ -448,32 +501,5 @@
       border-color: #BD99F8;
     }
   }
-
-  .generate-image-fullscreen {
-    background-color: #1E1E1E;
-  }
-
-  .fullscreen-textarea {
-    background-color: #2C2C2C;
-    color: #FFFFFF;
-    border-color: #4A4A4A;
-
-    &:focus {
-      border-color: #BD99F8;
-    }
-  }
-
-  .close-fullscreen {
-    color: #FFFFFF;
-
-    &:hover {
-      background-color: rgba(255, 255, 255, 0.1);
-    }
-  }
-
-  .info-icon:hover,
-  .expand-icon:hover,
-  .edit-icon:hover {
-    background-color: rgba(189, 153, 248, 0.1);
-  }
 }
+

@@ -1,8 +1,8 @@
 export const PICSARTURL = "https://api.picsart.io/tools/1.0/" as const;
 export const GENAIURL = "https://genai-api.picsart.io/v1/" as const;
 export const REMOVEBG = "figma/removebg" as const;
+export const GENERATEIMAGE = "text2image" as const;
 export const UPSCALE = "figma/upscale" as const;
-export const TEXT2IMAGE = "text2image" as const;
 export const BALANACE = "balance" as const;
 export const HEADERAPI = "X-Picsart-API-Key" as const;
 export const HEADER_PLUGIN_NAME_KEY = "X-Picsart-Plugin" as const;

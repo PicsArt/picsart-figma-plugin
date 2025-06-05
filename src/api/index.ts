@@ -1,4 +1,4 @@
-import { TOKEN_ERR, BALANACE, HEADERAPI, PICSARTURL, GENAIURL, UPSCALE, TEXT2IMAGE, KEY_WRONG_ERR, REMOVEBG } from "@constants/index";
+import { TOKEN_ERR, BALANACE, HEADERAPI, PICSARTURL, GENAIURL, UPSCALE, GENERATEIMAGE, KEY_WRONG_ERR, REMOVEBG } from "@constants/index";
 import getImageBinary from "@utils/imageprocessor";
 import { customFetch } from "./customFetch";
 
@@ -7,21 +7,21 @@ interface BalanceResponse {
     credits?: number;
 }
 
-interface Text2ImageResponse {
-    inference_id: string;
-    message?: string;
+interface GenerateImageResponse {
+    status: string;
+    msg: string;
+    inferenceId?: string;
 }
 
-interface Text2ImageStatusResponse {
+interface GenerateImageStatusResponse {
     status: string;
-    data: {
-        images: { url: string }[];
-    };
-    message?: string;
+    msg: string;
+    imageUrl?: string;
 }
 
 interface GenerateImageOptions {
-    aspectRatio: string;
+    width: number;
+    height: number;
     style: string;
 }
 
@@ -59,86 +59,50 @@ export const getBalance = async (key: string) : Promise<GetBalanceReturnType> =>
     }
 };
 
-export const generateImageText2Image = async (prompt: string, key: string, options: GenerateImageOptions) => {
-    try {
-        const requestBody = {
-            prompt: prompt,
-            width: options.aspectRatio === "Portrait" ? 1024 : options.aspectRatio === "Wide" ? 2048 : 1024,
-            height: options.aspectRatio === "Portrait" ? 2048 : options.aspectRatio === "Landscape" ? 1024 : 1024,
-            count: 1
-        };
+export const generateImage = async (prompt: string, key: string, options: GenerateImageOptions) => {
+    if (!prompt) {
+        return { success: false, msg: "Prompt is required" };
+    }
 
-        const response = await fetch(GENAIURL + TEXT2IMAGE, {
+    try {
+        const response = await fetch(GENAIURL + GENERATEIMAGE, {
             method: "POST",
-            headers: { 
+            headers: {
+                "Content-Type": "application/json",
                 [HEADERAPI]: key,
-                "Content-Type": "application/json"
             },
-            body: JSON.stringify(requestBody),
+            body: JSON.stringify({
+                prompt,
+                ...options,
+            }),
         });
 
-        const res: Text2ImageResponse = await response.json();
-        
-        if (res.message === TOKEN_ERR) {
-            return { success: false, msg: TOKEN_ERR, inferenceId: null };
+        const res: GenerateImageResponse = await response.json();
+
+        if (response.ok) {
+            return {
+                success: true,
+                msg: res.msg,
+                inferenceId: res.inferenceId,
+            };
+        } else {
+            return { success: false, msg: res.msg };
         }
-
-        if (!res.inference_id) {
-            return { success: false, msg: "Failed to start image generation", inferenceId: null };
-        }
-
-        return { success: true, msg: "Generation started", inferenceId: res.inference_id };
-
     } catch (error) {
-        console.error("Error generating image:", error);
-        return { success: false, msg: error instanceof Error ? error.message : String(error), inferenceId: null };
+        return { success: false, msg: "Network error occurred" };
     }
 };
 
-export const checkText2ImageStatus = async (inferenceId: string, key: string) => {
+export const checkGenerateImageStatus = async (inferenceId: string, key: string) => {
     try {
-        const response = await customFetch(`${GENAIURL}${TEXT2IMAGE}/inferences/${inferenceId}`, {
+        const response = await customFetch(`${GENAIURL}${GENERATEIMAGE}/inferences/${inferenceId}`, {
             method: "GET",
             headers: { [HEADERAPI]: key },
         });
-
-        const res: Text2ImageStatusResponse = await response.json();
-
-        if (res.message === TOKEN_ERR) {
-            return { success: false, msg: TOKEN_ERR, status: "error", imageUrl: null };
-        }
-
-        if (res.status === "completed" && res.data && res.data.images && res.data.images.length > 0) {
-            return { 
-                success: true, 
-                msg: "Image generated successfully", 
-                status: "completed", 
-                imageUrl: res.data.images[0].url 
-            };
-        } else if (res.status === "processing" || res.status === "pending") {
-            return { 
-                success: true, 
-                msg: "Still processing", 
-                status: res.status, 
-                imageUrl: null 
-            };
-        } else {
-            return { 
-                success: false, 
-                msg: "Generation failed", 
-                status: "failed", 
-                imageUrl: null 
-            };
-        }
-
+        const res: GenerateImageStatusResponse = await response.json();
+        return res;
     } catch (error) {
-        console.error("Error checking image status:", error);
-        return { 
-            success: false, 
-            msg: error instanceof Error ? error.message : String(error), 
-            status: "error", 
-            imageUrl: null 
-        };
+        return { status: "error", msg: "Failed to check status" };
     }
 };
 
@@ -234,7 +198,7 @@ export default {
     sendMessageToSandBox,
     removeBackgroundApi,
     enhanceImage,
-    generateImageText2Image,
-    checkText2ImageStatus,
+    generateImage,
+    checkGenerateImageStatus,
     downloadGeneratedImage
 }

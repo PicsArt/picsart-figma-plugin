@@ -1,10 +1,16 @@
 import React, { useState } from "react";
-import { generateImageText2Image, checkText2ImageStatus, downloadGeneratedImage, sendMessageToSandBox } from "@api/index";
+import { generateImage, checkGenerateImageStatus, downloadGeneratedImage, sendMessageToSandBox } from "@api/index";
 import {
   PRICING,
   PROCESSING_IMAGE,
   TYPE_NOTIFY,
   TYPE_IMAGEBYTES,
+  STYLE_OPTIONS,
+  ASPECT_RATIO_OPTIONS,
+  ASPECT_RATIO_DIMENSIONS,
+  PRESET_TAGS,
+  DEFAULT_STYLE,
+  DEFAULT_ASPECT_RATIO,
 } from "@constants/index";
 import { Button, LoadingSpinner } from "@components/index";
 import { BtnType } from "../../types/enums";
@@ -16,10 +22,6 @@ interface GenerateImageProps {
   isCreditsInsufficient: boolean;
 }
 
-const presetTags = ["Popular cat", "Ads", "Landscape"];
-const aspectRatioOptions = ["Square", "Portrait", "Landscape", "Wide"];
-const styleOptions = ["Pop art", "Realistic", "Cartoon", "Anime", "Abstract", "Vintage"];
-
 const GenerateImage: React.FC<GenerateImageProps> = ({
   gottenKey,
   needToSetUpdateBalance,
@@ -29,8 +31,8 @@ const GenerateImage: React.FC<GenerateImageProps> = ({
   const [prompt, setPrompt] = useState<string>("");
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [showAdvancedSettings, setShowAdvancedSettings] = useState<boolean>(false);
-  const [aspectRatio, setAspectRatio] = useState<string>("Square");
-  const [style, setStyle] = useState<string>("Pop art");
+  const [aspectRatio, setAspectRatio] = useState<string>(DEFAULT_ASPECT_RATIO);
+  const [style, setStyle] = useState<string>(DEFAULT_STYLE);
 
   const pollForCompletion = async (inferenceId: string, key: string) => {
     const maxAttempts = 30; // 30 attempts with 2-second intervals = 1 minute max
@@ -44,7 +46,7 @@ const GenerateImage: React.FC<GenerateImageProps> = ({
       }
 
       attempts++;
-      const statusResult = await checkText2ImageStatus(inferenceId, key);
+      const statusResult = await checkGenerateImageStatus(inferenceId, key);
 
       if (statusResult.status === "completed" && statusResult.imageUrl) {
         // Download the generated image
@@ -76,7 +78,12 @@ const GenerateImage: React.FC<GenerateImageProps> = ({
     sendMessageToSandBox(true, PROCESSING_IMAGE, TYPE_NOTIFY);
 
     try {
-      const response = await generateImageText2Image(prompt, gottenKey, { aspectRatio, style });
+      const dimensions = ASPECT_RATIO_DIMENSIONS[aspectRatio as keyof typeof ASPECT_RATIO_DIMENSIONS];
+      const response = await generateImage(prompt, gottenKey, { 
+        width: dimensions.width,
+        height: dimensions.height,
+        style 
+      });
       
       if (response.success && response.inferenceId) {
         // Start polling for completion
@@ -121,31 +128,6 @@ const GenerateImage: React.FC<GenerateImageProps> = ({
     btnType = BtnType.GENERATE_IMAGE_DISABLED;
   }
 
-  if (isFullscreen) {
-    return (
-      <div className="generate-image-fullscreen">
-        <div className="fullscreen-header">
-          <button className="close-fullscreen" onClick={toggleFullscreen}>
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M12 4L4 12M4 4L12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
-          </button>
-        </div>
-        <textarea
-          className="fullscreen-textarea"
-          value={prompt}
-          onChange={handlePromptChange}
-          placeholder="Kangaroo carrying a corgi in cartoon style"
-          autoFocus
-        />
-        <div className="fullscreen-button">
-          <Button type={btnType} cb={cb} />
-        </div>
-        {loading && <LoadingSpinner />}
-      </div>
-    );
-  }
-
   return (
     <div className="generate-image-container">
       <div className="prompt-section">
@@ -158,20 +140,27 @@ const GenerateImage: React.FC<GenerateImageProps> = ({
               </svg>
             </button>
           </div>
-          <button className="expand-icon" onClick={toggleFullscreen} title="Expand to fullscreen">
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M17.0625 1.5V6C17.0625 6.14918 17.0032 6.29226 16.8977 6.39775C16.7923 6.50324 16.6492 6.5625 16.5 6.5625C16.3508 6.5625 16.2077 6.50324 16.1023 6.39775C15.9968 6.29226 15.9375 6.14918 15.9375 6V2.8575L10.8975 7.8975C10.7909 7.99686 10.6498 8.05095 10.5041 8.04838C10.3584 8.04581 10.2193 7.98678 10.1163 7.88372C10.0132 7.78066 9.95419 7.64162 9.95162 7.49589C9.94905 7.35017 10.0031 7.20913 10.1025 7.1025L15.1425 2.0625H12C11.8508 2.0625 11.7077 2.00324 11.6023 1.89775C11.4968 1.79226 11.4375 1.64918 11.4375 1.5C11.4375 1.35082 11.4968 1.20774 11.6023 1.10225C11.7077 0.996763 11.8508 0.9375 12 0.9375H16.5C16.6492 0.9375 16.7923 0.996763 16.8977 1.10225C17.0032 1.20774 17.0625 1.35082 17.0625 1.5ZM7.1025 10.1025L2.0625 15.1425V12C2.0625 11.8508 2.00324 11.7077 1.89775 11.6023C1.79226 11.4968 1.64918 11.4375 1.5 11.4375C1.35082 11.4375 1.20774 11.4968 1.10225 11.6023C0.996763 11.7077 0.9375 11.8508 0.9375 12V16.5C0.9375 16.6492 0.996763 16.7923 1.10225 16.8977C1.20774 17.0032 1.35082 17.0625 1.5 17.0625H6C6.14918 17.0625 6.29226 17.0032 6.39775 16.8977C6.50324 16.7923 6.5625 16.6492 6.5625 16.5C6.5625 16.3508 6.50324 16.2077 6.39775 16.1023C6.29226 15.9968 6.14918 15.9375 6 15.9375H2.8575L7.8975 10.8975C7.99686 10.7909 8.05095 10.6498 8.04838 10.5041C8.04581 10.3584 7.98678 10.2193 7.88372 10.1163C7.78066 10.0132 7.64162 9.95419 7.49589 9.95162C7.35017 9.94905 7.20913 10.0031 7.1025 10.1025Z" fill="#5A00EE"/>
-            </svg>
+          <button className="expand-icon" onClick={toggleFullscreen} title={isFullscreen ? "Collapse" : "Expand"}>
+            {isFullscreen ? (
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M6.5625 0.9375V6C6.5625 6.14918 6.50324 6.29226 6.39775 6.39775C6.29226 6.50324 6.14918 6.5625 6 6.5625C5.85082 6.5625 5.70774 6.50324 5.60225 6.39775C5.49676 6.29226 5.4375 6.14918 5.4375 6V2.8575L0.3975 7.8975C0.290863 7.99686 0.149819 8.05095 0.00409338 8.04838C-0.141632 8.04581 -0.280673 7.98678 -0.383728 7.88372C-0.486784 7.78066 -0.545815 7.64162 -0.548378 7.49589C-0.550942 7.35017 -0.496849 7.20913 -0.397488 7.1025L4.6425 2.0625H1.5C1.35082 2.0625 1.20774 2.00324 1.10225 1.89775C0.996763 1.79226 0.9375 1.64918 0.9375 1.5C0.9375 1.35082 0.996763 1.20774 1.10225 1.10225C1.20774 0.996763 1.35082 0.9375 1.5 0.9375H6C6.14918 0.9375 6.29226 0.996763 6.39775 1.10225C6.50324 1.20774 6.5625 1.35082 6.5625 1.5V0.9375ZM17.1025 10.8975L12.0625 15.9375H15C15.1492 15.9375 15.2923 15.9968 15.3977 16.1023C15.5032 16.2077 15.5625 16.3508 15.5625 16.5C15.5625 16.6492 15.5032 16.7923 15.3977 16.8977C15.2923 17.0032 15.1492 17.0625 15 17.0625H10.5C10.3508 17.0625 10.2077 17.0032 10.1023 16.8977C9.99676 16.7923 9.9375 16.6492 9.9375 16.5V12C9.9375 11.8508 9.99676 11.7077 10.1023 11.6023C10.2077 11.4968 10.3508 11.4375 10.5 11.4375C10.6492 11.4375 10.7923 11.4968 10.8977 11.6023C11.0032 11.7077 11.0625 11.8508 11.0625 12V15.1425L16.1025 10.1025C16.2091 10.0031 16.3502 9.94905 16.4959 9.95162C16.6416 9.95419 16.7807 10.0132 16.8837 10.1163C16.9868 10.2193 17.0458 10.3584 17.0484 10.5041C17.051 10.6498 16.9969 10.7909 16.8975 10.8975H17.1025Z" fill="#5A00EE"/>
+              </svg>
+            ) : (
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M17.0625 1.5V6C17.0625 6.14918 17.0032 6.29226 16.8977 6.39775C16.7923 6.50324 16.6492 6.5625 16.5 6.5625C16.3508 6.5625 16.2077 6.50324 16.1023 6.39775C15.9968 6.29226 15.9375 6.14918 15.9375 6V2.8575L10.8975 7.8975C10.7909 7.99686 10.6498 8.05095 10.5041 8.04838C10.3584 8.04581 10.2193 7.98678 10.1163 7.88372C10.0132 7.78066 9.95419 7.64162 9.95162 7.49589C9.94905 7.35017 10.0031 7.20913 10.1025 7.1025L15.1425 2.0625H12C11.8508 2.0625 11.7077 2.00324 11.6023 1.89775C11.4968 1.79226 11.4375 1.64918 11.4375 1.5C11.4375 1.35082 11.4968 1.20774 11.6023 1.10225C11.7077 0.996763 11.8508 0.9375 12 0.9375H16.5C16.6492 0.9375 16.7923 0.996763 16.8977 1.10225C17.0032 1.20774 17.0625 1.35082 17.0625 1.5ZM7.1025 10.1025L2.0625 15.1425V12C2.0625 11.8508 2.00324 11.7077 1.89775 11.6023C1.79226 11.4968 1.64918 11.4375 1.5 11.4375C1.35082 11.4375 1.20774 11.4968 1.10225 11.6023C0.996763 11.7077 0.9375 11.8508 0.9375 12V16.5C0.9375 16.6492 0.996763 16.7923 1.10225 16.8977C1.20774 17.0032 1.35082 17.0625 1.5 17.0625H6C6.14918 17.0625 6.29226 17.0032 6.39775 16.8977C6.50324 16.7923 6.5625 16.6492 6.5625 16.5C6.5625 16.3508 6.50324 16.2077 6.39775 16.1023C6.29226 15.9968 6.14918 15.9375 6 15.9375H2.8575L7.8975 10.8975C7.99686 10.7909 8.05095 10.6498 8.04838 10.5041C8.04581 10.3584 7.98678 10.2193 7.88372 10.1163C7.78066 10.0132 7.64162 9.95419 7.49589 9.95162C7.35017 9.94905 7.20913 10.0031 7.1025 10.1025Z" fill="#5A00EE"/>
+              </svg>
+            )}
           </button>
         </div>
         
         <div className="textarea-container">
           <textarea
-            className="prompt-textarea"
+            className={`prompt-textarea ${isFullscreen ? 'expanded' : ''}`}
             value={prompt}
             onChange={handlePromptChange}
             placeholder="Kangaroo carrying a corgi in cartoon style"
-            rows={4}
+            rows={isFullscreen ? 20 : 4}
+            autoFocus={isFullscreen}
           />
           <div className="textarea-icons">
             <button className="edit-icon" title="Enhance prompt">
@@ -185,7 +174,7 @@ const GenerateImage: React.FC<GenerateImageProps> = ({
       </div>
 
       <div className="preset-tags">
-        {presetTags.map((preset, index) => (
+        {PRESET_TAGS.map((preset, index) => (
           <button
             key={index}
             className="preset-tag"
@@ -216,7 +205,7 @@ const GenerateImage: React.FC<GenerateImageProps> = ({
                 value={aspectRatio}
                 onChange={(e) => setAspectRatio(e.target.value)}
               >
-                {aspectRatioOptions.map((option) => (
+                {ASPECT_RATIO_OPTIONS.map((option) => (
                   <option key={option} value={option}>
                     {option}
                   </option>
@@ -231,7 +220,7 @@ const GenerateImage: React.FC<GenerateImageProps> = ({
                 value={style}
                 onChange={(e) => setStyle(e.target.value)}
               >
-                {styleOptions.map((option) => (
+                {STYLE_OPTIONS.map((option) => (
                   <option key={option} value={option}>
                     {option}
                   </option>

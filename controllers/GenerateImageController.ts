@@ -3,6 +3,7 @@ import {
   API_KEY_NAME,
   TYPE_TAB,
   TAB_GENERATE_IMAGE,
+  WIDGET_HEIGHT_GENERATE_IMAGE,
 } from "@constants/index";
 import { sendImageSelectionStatus } from "@services/ImageProcessor";
 import { setMessageListeners } from "@services/MessageListeners";
@@ -13,7 +14,7 @@ const GenerateImageController = async () => {
   figma.showUI(__html__, {
     visible: true,
     themeColors: true,
-    height: apiKey ? 340 : 480,
+    height: WIDGET_HEIGHT_GENERATE_IMAGE,
   });
 
   setTimeout(() => {
