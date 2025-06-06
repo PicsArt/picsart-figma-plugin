@@ -8,30 +8,39 @@ interface BalanceResponse {
 }
 
 interface GenerateImageResponse {
+    inference_id?: string;
     status: string;
-    msg: string;
-    inferenceId?: string;
+    message?: string;
+    detail?: string;
 }
 
 interface GenerateImageStatusResponse {
     status: string;
-    msg: string;
-    imageUrl?: string;
+    data?: Array<{
+        id: string;
+        url: string;
+        status: string;
+    }>;
+    message?: string;
+    detail?: string;
 }
 
 interface GenerateImageOptions {
     width: number;
     height: number;
     style: string;
+    negative_prompt?: string;
+    count?: number;
 }
 
-export const sendMessageToSandBox = (success: boolean, msg: string | Uint8Array, type? : string, scaleFactor? : number) => {
+export const sendMessageToSandBox = (success: boolean, msg: string | Uint8Array, type? : string, scaleFactor? : number, additionalData?: any) => {
     // eslint-disable-next-line no-restricted-globals
     parent.postMessage({ pluginMessage: {
       success,
       msg,
       type,
-      scaleFactor
+      scaleFactor,
+      ...additionalData
     }}, "*" );
 }   
 
@@ -70,23 +79,30 @@ export const generateImage = async (prompt: string, key: string, options: Genera
             headers: {
                 "Content-Type": "application/json",
                 [HEADERAPI]: key,
+                "X-Picsart-Plugin": "Figma",
             },
             body: JSON.stringify({
                 prompt,
-                ...options,
+                negative_prompt: options.negative_prompt || "",
+                width: options.width,
+                height: options.height,
+                count: options.count || 1,
+                style: options.style,
             }),
         });
 
         const res: GenerateImageResponse = await response.json();
 
-        if (response.ok) {
+        if (response.status === 202 && res.status === "ACCEPTED") {
             return {
                 success: true,
-                msg: res.msg,
-                inferenceId: res.inferenceId,
+                msg: "Image generation started",
+                inferenceId: res.inference_id,
             };
+        } else if (response.status === 401 && res.message === "token_error") {
+            return { success: false, msg: TOKEN_ERR };
         } else {
-            return { success: false, msg: res.msg };
+            return { success: false, msg: res.detail || res.message || "Unknown error occurred" };
         }
     } catch (error) {
         return { success: false, msg: "Network error occurred" };
@@ -97,12 +113,59 @@ export const checkGenerateImageStatus = async (inferenceId: string, key: string)
     try {
         const response = await customFetch(`${GENAIURL}${GENERATEIMAGE}/inferences/${inferenceId}`, {
             method: "GET",
-            headers: { [HEADERAPI]: key },
+            headers: { 
+                [HEADERAPI]: key,
+                "X-Picsart-Plugin": "Figma"
+            },
         });
         const res: GenerateImageStatusResponse = await response.json();
-        return res;
+        
+        if (response.status === 401 && res.message === "token_error") {
+            return { status: "error", msg: TOKEN_ERR };
+        }
+        
+        if (res.status === "FINISHED" && res.data) {
+            // Return all completed image URLs
+            const completedImages = res.data.filter(item => item.status === "DONE");
+            if (completedImages.length > 0) {
+                return { 
+                    status: "FINISHED", 
+                    msg: "Images generated successfully", 
+                    imageUrls: completedImages.map(img => img.url)
+                };
+            }
+        }
+        
+        return { status: res.status, msg: res.status };
     } catch (error) {
         return { status: "error", msg: "Failed to check status" };
+    }
+};
+
+export const downloadGeneratedImages = async (imageUrls: string[]) => {
+    try {
+        console.log(`Downloading ${imageUrls.length} images:`, imageUrls);
+        
+        const downloadPromises = imageUrls.map(async (url, index) => {
+            console.log(`Starting download of image ${index + 1}: ${url}`);
+            const imageResponse = await fetch(url);
+            if (!imageResponse.ok) {
+                throw new Error(`Failed to download image ${index + 1}: ${imageResponse.status}`);
+            }
+            
+            const blob = await imageResponse.blob();
+            const arrayBuffer = await blob.arrayBuffer();
+            console.log(`Successfully downloaded image ${index + 1}, size: ${arrayBuffer.byteLength} bytes`);
+            return new Uint8Array(arrayBuffer);
+        });
+
+        const imageArrays = await Promise.all(downloadPromises);
+        console.log(`All ${imageArrays.length} images downloaded successfully`);
+        return { success: true, images: imageArrays };
+
+    } catch (error) {
+        console.error("Error downloading generated images:", error);
+        return { success: false, msg: error instanceof Error ? error.message : String(error) };
     }
 };
 
@@ -200,5 +263,6 @@ export default {
     enhanceImage,
     generateImage,
     checkGenerateImageStatus,
+    downloadGeneratedImages,
     downloadGeneratedImage
 }

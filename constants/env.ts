@@ -3,7 +3,7 @@ export const WIDGET_WIDTH = 320;
 export const WIDGET_HEIGHT_WITH_KEY = 300;
 export const WIDGET_HEIGHT_WITHOUT_KEY = 450;
 export const WIDGET_HEIGHT_ACCOUNT_PAGE = 260;
-export const WIDGET_HEIGHT_GENERATE_IMAGE = 633;
+export const WIDGET_HEIGHT_GENERATE_IMAGE = 575;
 
 // eslint-disable-next-line import/no-anonymous-default-export
 export default {

@@ -55,4 +55,6 @@ export const PRESET_TAGS = [
 ] as const;
 
 export const DEFAULT_STYLE = "Pop Art" as const;
-export const DEFAULT_ASPECT_RATIO = "Square" as const; 
+export const DEFAULT_ASPECT_RATIO = "Square" as const;
+export const DEFAULT_NEGATIVE_PROMPT = "" as const;
+export const DEFAULT_IMAGE_COUNT = 2 as const; 

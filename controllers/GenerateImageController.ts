@@ -32,4 +32,4 @@ const GenerateImageController = async () => {
   }, 400);
 };
 
-export default GenerateImageController; 
+export default GenerateImageController;

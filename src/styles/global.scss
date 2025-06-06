@@ -16,10 +16,11 @@ body {
 
 #root {
   padding: 8px 16px 16px 16px;
-  height: 92vh;
+  height: 97vh;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  overflow: hidden;
 }
 
 .flex-row {

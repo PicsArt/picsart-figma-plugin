@@ -6,6 +6,7 @@ import {
   KEY_SET,
   TYPE_SET_KEY,
   TYPE_CLOSE_PLUGIN,
+  TYPE_GENERATED_IMAGES,
 } from "@constants/index";
 
 export const setMessageListeners = (figma : PluginAPI) => {
@@ -17,6 +18,14 @@ export const setMessageListeners = (figma : PluginAPI) => {
         const res = await ImageProcessor.setFetchedImage(
           response.msg,
           response.scaleFactor
+        );
+        figma.notify(res);
+      }
+
+      if (response.type === TYPE_GENERATED_IMAGES) {
+        const res = await ImageProcessor.addGeneratedImages(
+          response.images,
+          response.prompt
         );
         figma.notify(res);
       }

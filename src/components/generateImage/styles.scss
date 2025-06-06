@@ -3,8 +3,6 @@
 
 // Base container
 .generate-image-container {
-  margin-top: 12px;
-  margin-bottom: 37px;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -24,12 +22,17 @@
   }
 }
 
-// Hide preset tags and advanced settings when textarea is expanded
+// Hide preset tags, advanced settings, and balance banner when textarea is expanded
 .generate-image-container:has(.prompt-textarea.expanded) {
   .preset-tags,
   .advanced-settings {
     display: none;
   }
+}
+
+// Hide balance banner when textarea is expanded (applies to parent level)
+:has(.generate-image-container .prompt-textarea.expanded) .balance-container {
+  display: none;
 }
 
 // Expanded mode styles
@@ -154,7 +157,7 @@
 
 .prompt-textarea {
   width: 100%;
-  min-height: 80px;
+  min-height: 193px;
   padding: 12px 40px 12px 12px;
   border: 1px solid #CBCBCB;
   border-radius: 8px;
@@ -178,8 +181,8 @@
   }
 
   &.expanded {
-    max-height: 400px;
-    height: 400px;
+    max-height: 450px;
+    height: 450px;
     font-size: 14px;
     line-height: 1.5;
     border-color: #5A00EE;

@@ -1,16 +1,18 @@
 import React, { useState } from "react";
-import { generateImage, checkGenerateImageStatus, downloadGeneratedImage, sendMessageToSandBox } from "@api/index";
+import { generateImage, checkGenerateImageStatus, downloadGeneratedImages, sendMessageToSandBox } from "@api/index";
 import {
   PRICING,
   PROCESSING_IMAGE,
   TYPE_NOTIFY,
-  TYPE_IMAGEBYTES,
+  TYPE_GENERATED_IMAGES,
   STYLE_OPTIONS,
   ASPECT_RATIO_OPTIONS,
   ASPECT_RATIO_DIMENSIONS,
   PRESET_TAGS,
   DEFAULT_STYLE,
   DEFAULT_ASPECT_RATIO,
+  DEFAULT_NEGATIVE_PROMPT,
+  DEFAULT_IMAGE_COUNT,
 } from "@constants/index";
 import { Button, LoadingSpinner } from "@components/index";
 import { BtnType } from "../../types/enums";
@@ -34,37 +36,57 @@ const GenerateImage: React.FC<GenerateImageProps> = ({
   const [aspectRatio, setAspectRatio] = useState<string>(DEFAULT_ASPECT_RATIO);
   const [style, setStyle] = useState<string>(DEFAULT_STYLE);
 
-  const pollForCompletion = async (inferenceId: string, key: string) => {
+  const pollForCompletion = async (inferenceId: string, key: string, originalPrompt: string) => {
     const maxAttempts = 30; // 30 attempts with 2-second intervals = 1 minute max
     let attempts = 0;
+    let isPolling = true;
 
     const poll = async (): Promise<void> => {
-      if (attempts >= maxAttempts) {
-        sendMessageToSandBox(false, "Image generation timed out", TYPE_NOTIFY);
+      if (!isPolling || attempts >= maxAttempts) {
+        if (attempts >= maxAttempts) {
+          sendMessageToSandBox(false, "Image generation timed out", TYPE_NOTIFY);
+        }
         setLoading(false);
         return;
       }
 
       attempts++;
-      const statusResult = await checkGenerateImageStatus(inferenceId, key);
+      
+      try {
+        const statusResult = await checkGenerateImageStatus(inferenceId, key);
 
-      if (statusResult.status === "completed" && statusResult.imageUrl) {
-        // Download the generated image
-        const downloadResult = await downloadGeneratedImage(statusResult.imageUrl);
-        if (downloadResult.success) {
-          sendMessageToSandBox(true, downloadResult.msg as Uint8Array, TYPE_IMAGEBYTES);
-          sendMessageToSandBox(true, "Image generated successfully!", TYPE_NOTIFY);
+        if (!isPolling) return; // Stop if polling was cancelled
+
+        if (statusResult.status === "FINISHED" && statusResult.imageUrls) {
+          isPolling = false;
+          // Download all generated images
+          const downloadResult = await downloadGeneratedImages(statusResult.imageUrls);
+          if (downloadResult.success && downloadResult.images) {
+            // Send images with prompt to sandbox
+            sendMessageToSandBox(true, "", TYPE_GENERATED_IMAGES, undefined, {
+              images: downloadResult.images,
+              prompt: originalPrompt
+            });
+            sendMessageToSandBox(true, "Images generated successfully!", TYPE_NOTIFY);
+          } else {
+            sendMessageToSandBox(false, downloadResult.msg as string, TYPE_NOTIFY);
+          }
+          setLoading(false);
+          needToSetUpdateBalance((prev) => ++prev);
+        } else if (statusResult.status === "failed" || statusResult.status === "error") {
+          isPolling = false;
+          sendMessageToSandBox(false, statusResult.msg, TYPE_NOTIFY);
+          setLoading(false);
         } else {
-          sendMessageToSandBox(false, downloadResult.msg as string, TYPE_NOTIFY);
+          // Still processing, continue polling
+          if (isPolling) {
+            setTimeout(poll, 2000);
+          }
         }
+      } catch (error) {
+        isPolling = false;
+        sendMessageToSandBox(false, "Error checking image generation status", TYPE_NOTIFY);
         setLoading(false);
-        needToSetUpdateBalance((prev) => ++prev);
-      } else if (statusResult.status === "failed" || statusResult.status === "error") {
-        sendMessageToSandBox(false, statusResult.msg, TYPE_NOTIFY);
-        setLoading(false);
-      } else {
-        // Still processing, continue polling
-        setTimeout(poll, 2000);
       }
     };
 
@@ -79,15 +101,27 @@ const GenerateImage: React.FC<GenerateImageProps> = ({
 
     try {
       const dimensions = ASPECT_RATIO_DIMENSIONS[aspectRatio as keyof typeof ASPECT_RATIO_DIMENSIONS];
-      const response = await generateImage(prompt, gottenKey, { 
+      
+      // Auto-inject style into prompt if advanced settings is enabled and style is not default
+      let finalPrompt = prompt;
+      if (showAdvancedSettings && style && style !== DEFAULT_STYLE) {
+        // Check if style is already in the prompt to avoid duplication
+        if (!finalPrompt.toLowerCase().includes(style.toLowerCase())) {
+          finalPrompt = `${prompt}, ${style} style`;
+        }
+      }
+      
+      const response = await generateImage(finalPrompt, gottenKey, { 
         width: dimensions.width,
         height: dimensions.height,
-        style 
+        style,
+        negative_prompt: DEFAULT_NEGATIVE_PROMPT,
+        count: DEFAULT_IMAGE_COUNT
       });
       
       if (response.success && response.inferenceId) {
-        // Start polling for completion
-        pollForCompletion(response.inferenceId, gottenKey);
+        // Start polling for completion, pass the original prompt for labeling
+        pollForCompletion(response.inferenceId, gottenKey, finalPrompt);
       } else {
         sendMessageToSandBox(false, response.msg, TYPE_NOTIFY);
         setLoading(false);
