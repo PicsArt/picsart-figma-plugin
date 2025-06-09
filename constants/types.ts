@@ -12,6 +12,7 @@ export const TYPE_VALIDATE_KEY = "validate-key" as const;
 export const TYPE_CLOSE_PLUGIN = "validateclose-plugin" as const;
 export const TYPE_TEXT_TO_IMAGE_TAB = "text-to-image-tab" as const;
 export const TYPE_GENERATED_IMAGES = "generated-images" as const;
+export const TYPE_SWITCH_TAB = "switch-tab" as const;
 
 const TYPES = {
   TYPE_IMAGEBYTES,
@@ -26,7 +27,8 @@ const TYPES = {
   TYPE_VALIDATE_KEY,
   TYPE_CLOSE_PLUGIN,
   TYPE_TEXT_TO_IMAGE_TAB,
-  TYPE_GENERATED_IMAGES
+  TYPE_GENERATED_IMAGES,
+  TYPE_SWITCH_TAB
 };
 
 export default TYPES;

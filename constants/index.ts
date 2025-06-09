@@ -6,4 +6,4 @@ export * from './messages';
 export * from './routes';
 export * from './types';
 export * from './url';
-export * from './tabs';
+export * from './tabs'; 
