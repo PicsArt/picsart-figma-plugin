@@ -97,177 +97,181 @@ const setFetchedImage = async (
 /**
  * Creates or finds the Picsart container and adds generated images with their prompt
  */
-const addGeneratedImages = async (
-  imageArrays: Uint8Array[],
-  prompt: string
-) => {
+export const addGeneratedImages = async (images: Uint8Array[], prompt: string): Promise<string> => {
   try {
-    console.log(`Processing ${imageArrays.length} images for prompt: "${prompt}"`);
+    console.log(`Adding ${images.length} generated images for prompt: "${prompt}"`);
     
-    // Find or create Picsart container
-    let pixartContainer = figma.currentPage.findOne(node => 
+    // Find or create the main Picsart container
+    let picsartContainer = figma.currentPage.findOne(node =>
       node.type === "FRAME" && node.name === "Picsart"
     ) as FrameNode;
 
-    if (!pixartContainer) {
-      pixartContainer = figma.createFrame();
-      pixartContainer.name = "Picsart";
-      pixartContainer.fills = [{ type: "SOLID", color: { r: 0.95, g: 0.95, b: 0.95 } }];
-      pixartContainer.layoutMode = "VERTICAL";
-      pixartContainer.primaryAxisSizingMode = "FIXED"; // Fixed height, not hug
-      pixartContainer.counterAxisSizingMode = "FIXED"; // Fixed width, not hug
-      pixartContainer.paddingTop = 24;
-      pixartContainer.paddingBottom = 24;
-      pixartContainer.paddingLeft = 24;
-      pixartContainer.paddingRight = 24;
-      pixartContainer.itemSpacing = 16;
-      pixartContainer.cornerRadius = 8;
-      // Set initial size that will be updated below
-      pixartContainer.resize(2200, 1200);
+    if (!picsartContainer) {
+      picsartContainer = figma.createFrame();
+      picsartContainer.name = "Picsart";
+      picsartContainer.fills = [{ type: "SOLID", color: { r: 0.95, g: 0.95, b: 0.95 } }];
+      picsartContainer.layoutMode = "VERTICAL";
+      picsartContainer.primaryAxisSizingMode = "FIXED"; // Fixed height, not hug
+      picsartContainer.counterAxisSizingMode = "FIXED"; // Fixed width, not hug
+      picsartContainer.paddingTop = 24;
+      picsartContainer.paddingBottom = 24;
+      picsartContainer.paddingLeft = 24;
+      picsartContainer.paddingRight = 24;
+      picsartContainer.itemSpacing = 16;
+      picsartContainer.cornerRadius = 8;
+      
+      picsartContainer.resize(2200, 1200);
     }
 
-    // Check if a generation with the same prompt already exists
-    let existingGenerationGroup: FrameNode | null = null;
-    let existingImagesFrame: FrameNode | null = null;
-
-    for (let i = 0; i < pixartContainer.children.length; i++) {
-      const child = pixartContainer.children[i];
-      if (child.type === "FRAME") {
-        // Check if this generation group has the same prompt
-        const promptTextNode = child.children.find(c => c.type === "TEXT") as TextNode;
-        if (promptTextNode && promptTextNode.characters === prompt) {
-          existingGenerationGroup = child as FrameNode;
-          // Find the images frame within this generation
-          existingImagesFrame = child.children.find(c => 
-            c.type === "FRAME" && c.name === "Generated Images"
-          ) as FrameNode;
-          console.log(`Found existing generation for prompt: "${prompt}"`);
-          break;
+    // Check if this prompt already exists and find its generation number
+    let existingGeneration: FrameNode | null = null;
+    let maxImageNumber = 0;
+    
+    for (let i = 0; i < picsartContainer.children.length; i++) {
+      const child = picsartContainer.children[i];
+      if (child.type === "FRAME" && child.name.startsWith("Generation:")) {
+        const generationFrame = child as FrameNode;
+        
+        // Check if any text node contains this prompt
+        const textNodes = generationFrame.findAll(node => node.type === "TEXT") as TextNode[];
+        for (const textNode of textNodes) {
+          if (typeof textNode.characters === 'string' && textNode.characters.includes(prompt)) {
+            console.log(`Found existing generation for prompt: "${prompt}"`);
+            existingGeneration = generationFrame;
+            
+            // Find the images frame within this generation
+            const imagesFrame = generationFrame.findOne(node => 
+              node.type === "FRAME" && node.name === "Generated Images"
+            ) as FrameNode;
+            
+            if (imagesFrame) {
+              // Count existing images to determine next number
+              const existingImages = imagesFrame.findAll(node => 
+                node.type === "RECTANGLE" && node.name.startsWith("Image ")
+              );
+              maxImageNumber = existingImages.length;
+              console.log(`Found ${maxImageNumber} existing images in this generation`);
+            }
+            break;
+          }
         }
+        if (existingGeneration) break;
       }
     }
 
     let imagesFrame: FrameNode;
-    let generationGroup: FrameNode;
-
-    if (existingGenerationGroup && existingImagesFrame) {
-      // Add images horizontally to existing generation
-      console.log("Adding images horizontally to existing generation");
-      imagesFrame = existingImagesFrame;
-      generationGroup = existingGenerationGroup;
-    } else {
-      // Create new generation group vertically
-      console.log("Creating new vertical generation group");
+    
+    if (existingGeneration) {
+      // Find the existing images frame
+      imagesFrame = existingGeneration.findOne(node => 
+        node.type === "FRAME" && node.name === "Generated Images"
+      ) as FrameNode;
       
-      generationGroup = figma.createFrame();
-      generationGroup.name = `Generation: ${prompt.substring(0, 30)}...`;
+      console.log(`Adding to existing generation. Current images: ${maxImageNumber}`);
+    } else {
+      // Create new generation group
+      const generationGroup = figma.createFrame();
+      generationGroup.name = `Generation: ${prompt.substring(0, 30)}${prompt.length > 30 ? '...' : ''}`;
       generationGroup.layoutMode = "VERTICAL";
-      generationGroup.primaryAxisSizingMode = "AUTO"; // Generation group can hug its content
-      generationGroup.counterAxisSizingMode = "AUTO";
-      generationGroup.fills = [];
+      generationGroup.primaryAxisSizingMode = "AUTO"; // Hug content
+      generationGroup.counterAxisSizingMode = "FIXED"; // Fixed width
+      generationGroup.paddingTop = 16;
+      generationGroup.paddingBottom = 16;
+      generationGroup.paddingLeft = 16;
+      generationGroup.paddingRight = 16;
       generationGroup.itemSpacing = 12;
+      generationGroup.fills = [{ type: "SOLID", color: { r: 1, g: 1, b: 1 } }];
+      generationGroup.cornerRadius = 8;
+      generationGroup.resize(2048, 200); // Start with reasonable size
 
-      // Create prompt label
+      // Create prompt text
       const promptText = figma.createText();
       await figma.loadFontAsync({ family: "Inter", style: "Medium" });
-      promptText.fontName = { family: "Inter", style: "Medium" };
-      promptText.fontSize = 14;
       promptText.characters = prompt;
+      promptText.fontSize = 14;
       promptText.fills = [{ type: "SOLID", color: { r: 0.2, g: 0.2, b: 0.2 } }];
-
-      // Create horizontal frame for images
+      promptText.resize(2000, promptText.height);
+      
+      // Create images container
       imagesFrame = figma.createFrame();
       imagesFrame.name = "Generated Images";
       imagesFrame.layoutMode = "HORIZONTAL";
-      imagesFrame.primaryAxisSizingMode = "AUTO"; // Width hugs image content
-      imagesFrame.counterAxisSizingMode = "AUTO"; // Height hugs image content
-      imagesFrame.fills = [];
+      imagesFrame.primaryAxisSizingMode = "AUTO"; // Auto size horizontally
+      imagesFrame.counterAxisSizingMode = "AUTO"; // Auto size vertically  
       imagesFrame.itemSpacing = 12;
+      imagesFrame.fills = [];
 
-      // Add components to generation group
       generationGroup.appendChild(promptText);
       generationGroup.appendChild(imagesFrame);
-
-      // Add generation group to Picsart container
-      pixartContainer.appendChild(generationGroup);
+      picsartContainer.appendChild(generationGroup);
+      
+      console.log(`Created new generation for prompt: "${prompt}"`);
     }
 
-    // Create image nodes and add them to the images frame
-    for (let i = 0; i < imageArrays.length; i++) {
-      console.log(`Processing image ${i + 1} of ${imageArrays.length}`);
-      const imageData = imageArrays[i];
-      const figmaImage = figma.createImage(imageData);
+    // Add all images to the images frame
+    for (let i = 0; i < images.length; i++) {
+      const imageData = images[i];
+      const imageNumber = maxImageNumber + i + 1;
       
-      const imageNode = figma.createRectangle();
-      // Count existing images to number them correctly
-      const existingImageCount = imagesFrame.children.length;
-      imageNode.name = `Generated Image ${existingImageCount + i + 1}`;
-      
-      // Get the actual image size from the Figma image
-      const { width: imgWidth, height: imgHeight } = await figmaImage.getSizeAsync();
-      console.log(`Image ${existingImageCount + i + 1} original size: ${imgWidth}x${imgHeight}`);
-      
-      // Use original image dimensions
-      imageNode.resize(imgWidth, imgHeight);
-      console.log(`Image ${existingImageCount + i + 1} display size: ${imgWidth}x${imgHeight} (original size)`);
-      
-      const imageFill: ImagePaint = {
-        type: "IMAGE",
-        imageHash: figmaImage.hash,
-        scaleMode: "FILL",
-      };
-      
-      imageNode.fills = [imageFill];
-      imageNode.cornerRadius = 8;
-      
-      imagesFrame.appendChild(imageNode);
-    }
-
-    // Always recalculate and resize container to fit ALL content
-    // Wait for layout to update after adding new content
-    await new Promise(resolve => setTimeout(resolve, 150));
-    
-    // Calculate required container size based on ALL current content
-    // Use minimum dimensions based on typical image sizes (1024px or 2048px)
-    let maxWidth = 1024 + 48; // At least one image width + padding
-    let totalHeight = pixartContainer.paddingTop + pixartContainer.paddingBottom;
-    
-    // Go through all children to calculate total required space
-    for (let i = 0; i < pixartContainer.children.length; i++) {
-      const child = pixartContainer.children[i];
-      if (child.type === "FRAME") {
-        // Add this generation's width requirement (minimum 2048 + padding for 2 images)
-        const childRequiredWidth = Math.max(2048 + 48, child.width + pixartContainer.paddingLeft + pixartContainer.paddingRight);
-        maxWidth = Math.max(maxWidth, childRequiredWidth);
+      try {
+        console.log(`Creating image ${imageNumber}, size: ${imageData.byteLength} bytes`);
         
-        // Add this generation's height (minimum 1024 + text height)
-        const childHeight = Math.max(1024 + 50, child.height); // 50px for text + spacing
-        totalHeight += childHeight;
+        const imageNode = figma.createRectangle();
+        imageNode.name = `Image ${imageNumber}`;
         
-        if (i > 0) totalHeight += pixartContainer.itemSpacing; // spacing between generations
+        // Create image hash for fill
+        const imageHash = figma.createImage(imageData);
+        
+        // Set image fill
+        imageNode.fills = [{
+          type: "IMAGE",
+          imageHash: imageHash.hash,
+          scaleMode: "FILL"
+        }];
+        
+        // Set size to original image dimensions (1024x1024 for our generated images)
+        imageNode.resize(1024, 1024);
+        
+        imagesFrame.appendChild(imageNode);
+        console.log(`Successfully added Image ${imageNumber}`);
+        
+      } catch (error) {
+        console.error(`Error adding image ${imageNumber}:`, error);
       }
     }
-    
-    console.log(`Container now has ${pixartContainer.children.length} generations`);
-    console.log(`Calculated container size needed: ${maxWidth}x${totalHeight}`);
-    
-    // Ensure minimum dimensions for proper image display
-    maxWidth = Math.max(maxWidth, 2200); // Minimum for 2 × 1024px images + spacing + padding
-    totalHeight = Math.max(totalHeight, 1200); // Minimum for 1024px images + text + padding
-    
+
+    // Calculate and update container size to fit all content
+    let totalHeight = picsartContainer.paddingTop + picsartContainer.paddingBottom;
+    let maxWidth = 2200; // Minimum width
+
+    for (let i = 0; i < picsartContainer.children.length; i++) {
+      const child = picsartContainer.children[i];
+      totalHeight += child.height;
+      const childRequiredWidth = Math.max(2048 + 48, child.width + picsartContainer.paddingLeft + picsartContainer.paddingRight);
+      if (childRequiredWidth > maxWidth) {
+        maxWidth = childRequiredWidth;
+      }
+      
+      // Add spacing between generations (but not after the last one)
+      if (i > 0) totalHeight += picsartContainer.itemSpacing; // spacing between generations
+    }
+
+    console.log(`Container now has ${picsartContainer.children.length} generations`);
+    console.log(`Calculated total height: ${totalHeight}, max width: ${maxWidth}`);
+
     // Resize container to fit all content
-    pixartContainer.resizeWithoutConstraints(maxWidth, totalHeight);
+    picsartContainer.resizeWithoutConstraints(maxWidth, totalHeight);
     
-    console.log(`Container resized to: ${pixartContainer.width}x${pixartContainer.height}`);
+    console.log(`Container resized to: ${picsartContainer.width}x${picsartContainer.height}`);
 
-    // Center view on the new content
-    figma.viewport.scrollAndZoomIntoView([generationGroup]);
+    // Center view on the container
+    figma.viewport.scrollAndZoomIntoView([picsartContainer]);
 
-    console.log(`Successfully added ${imageArrays.length} images to Picsart container`);
-    return "Images added to Picsart container successfully!";
+    return `Successfully added ${images.length} generated image${images.length > 1 ? 's' : ''} to Figma canvas`;
+
   } catch (error) {
-    console.error("Error adding generated images:", error);
-    return "Error adding images to Picsart container";
+    console.error("Error in addGeneratedImages:", error);
+    return `Failed to add generated images: ${error}`;
   }
 };
 
