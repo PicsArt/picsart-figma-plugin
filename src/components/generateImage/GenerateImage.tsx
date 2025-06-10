@@ -1,8 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { generateImage, checkGenerateImageStatus, downloadGeneratedImages, sendMessageToSandBox } from "@api/index";
 import {
   PRICING,
-  PROCESSING_IMAGE,
+  GENERATING_IMAGE,
   TYPE_NOTIFY,
   TYPE_GENERATED_IMAGES,
   STYLE_OPTIONS,
@@ -33,11 +33,24 @@ const GenerateImage: React.FC<GenerateImageProps> = ({
   const [prompt, setPrompt] = useState<string>("");
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [showAdvancedSettings, setShowAdvancedSettings] = useState<boolean>(false);
+  const [showAdvancedOptions, setShowAdvancedOptions] = useState<boolean>(false);
   const [aspectRatio, setAspectRatio] = useState<string>(DEFAULT_ASPECT_RATIO);
   const [style, setStyle] = useState<string>(DEFAULT_STYLE);
 
+  // Handle delayed appearance of advanced options
+  useEffect(() => {
+    if (showAdvancedSettings) {
+      const timeout = setTimeout(() => {
+        setShowAdvancedOptions(true);
+      }, 10);
+      return () => clearTimeout(timeout);
+    } else {
+      setShowAdvancedOptions(false);
+    }
+  }, [showAdvancedSettings]);
+
   const pollForCompletion = async (inferenceId: string, key: string, originalPrompt: string) => {
-    const maxAttempts = 30; // 30 attempts with 2-second intervals = 1 minute max
+    const maxAttempts = 30; 
     let attempts = 0;
     let isPolling = true;
 
@@ -54,20 +67,16 @@ const GenerateImage: React.FC<GenerateImageProps> = ({
       
       try {
         const statusResult = await checkGenerateImageStatus(inferenceId, key);
-
-        if (!isPolling) return; // Stop if polling was cancelled
-
+        if (!isPolling) return; 
         if (statusResult.status === "FINISHED" && statusResult.imageUrls) {
           isPolling = false;
-          // Download all generated images
           const downloadResult = await downloadGeneratedImages(statusResult.imageUrls);
           if (downloadResult.success && downloadResult.images) {
-            // Send images with prompt to sandbox
             sendMessageToSandBox(true, "", TYPE_GENERATED_IMAGES, undefined, {
               images: downloadResult.images,
               prompt: originalPrompt
             });
-            sendMessageToSandBox(true, "Images generated successfully!", TYPE_NOTIFY);
+            sendMessageToSandBox(true, "🎨 Images generated and added to canvas!", TYPE_NOTIFY);
           } else {
             sendMessageToSandBox(false, downloadResult.msg as string, TYPE_NOTIFY);
           }
@@ -78,7 +87,6 @@ const GenerateImage: React.FC<GenerateImageProps> = ({
           sendMessageToSandBox(false, statusResult.msg, TYPE_NOTIFY);
           setLoading(false);
         } else {
-          // Still processing, continue polling
           if (isPolling) {
             setTimeout(poll, 2000);
           }
@@ -97,15 +105,13 @@ const GenerateImage: React.FC<GenerateImageProps> = ({
     if (!gottenKey || isCreditsInsufficient || !prompt.trim()) return;
     setLoading(true);
 
-    sendMessageToSandBox(true, PROCESSING_IMAGE, TYPE_NOTIFY);
+    sendMessageToSandBox(true, GENERATING_IMAGE, TYPE_NOTIFY);
 
     try {
       const dimensions = ASPECT_RATIO_DIMENSIONS[aspectRatio as keyof typeof ASPECT_RATIO_DIMENSIONS];
       
-      // Auto-inject style into prompt if advanced settings is enabled and style is not default
       let finalPrompt = prompt;
       if (showAdvancedSettings && style && style !== DEFAULT_STYLE) {
-        // Check if style is already in the prompt to avoid duplication
         if (!finalPrompt.toLowerCase().includes(style.toLowerCase())) {
           finalPrompt = `${prompt}, ${style} style`;
         }
@@ -120,7 +126,6 @@ const GenerateImage: React.FC<GenerateImageProps> = ({
       });
       
       if (response.success && response.inferenceId) {
-        // Start polling for completion, pass the original prompt for labeling
         pollForCompletion(response.inferenceId, gottenKey, finalPrompt);
       } else {
         sendMessageToSandBox(false, response.msg, TYPE_NOTIFY);
@@ -230,8 +235,8 @@ const GenerateImage: React.FC<GenerateImageProps> = ({
           <span className="toggle-label">Advanced settings</span>
         </label>
 
-        {showAdvancedSettings && (
-          <div className="advanced-options">
+        {showAdvancedOptions && (
+          <div className={`advanced-options ${showAdvancedOptions ? 'visible' : ''}`}>
             <div className="option-group">
               <label className="option-label">Aspect ratio</label>
               <select
