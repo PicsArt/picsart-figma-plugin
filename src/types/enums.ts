@@ -1,6 +1,7 @@
 export enum TabType {
   TAB_REMOVE_BACKGROUND_INSTANTLY = "Remove Background Instantly",
-  REMOVE_BACKGROUND = "Remove Background",
+  REMOVE_BACKGROUND = "Remove BG",
+  TEXT_TO_IMAGE = "Generate image",
   UPSCALE = "Upscale",
   ACCOUNT = "Account Balance",
   SUPPORT = "Support",
@@ -14,6 +15,9 @@ export enum BtnType {
   UPSCALE_ACTIVE = "upscale-active",
   UPSCALE_NO_CREDITS = "upscale-no-credits",
   UPSCALE_DISABLED = "upscale-disabled",
+  GENERATE_IMAGE_ACTIVE = "generate-image-active",
+  GENERATE_IMAGE_NO_CREDITS = "generate-image-no-credits",
+  GENERATE_IMAGE_DISABLED = "generate-image-disabled",
   CONTINUE = "continue",
   CHANGE_KEY = "change-key",
   BUY_MORE = "buy-more",

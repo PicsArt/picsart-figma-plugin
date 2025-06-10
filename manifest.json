@@ -15,6 +15,8 @@
       "https://project-files.picsart.com",
       "https://fonts.gstatic.com",
       "https://api.picsart.io",
+      "https://genai-api.picsart.io",
+      "https://aicdn.picsart.com",
       "https://picsart.io",
       "https://cdn.picsart.io"
     ]
@@ -30,6 +32,13 @@
     {
       "name": "Enhance / Upscale",
       "command": "UPSCALE"
+    },
+    {
+      "separator": true
+    },
+    {
+      "name": "Generate Image",
+      "command": "GENERATE-IMAGE"
     },
     {
       "separator": true

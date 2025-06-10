@@ -16,10 +16,16 @@ body {
 
 #root {
   padding: 8px 16px 16px 16px;
-  height: 92vh;
+  height: 92vh; /* Default height for most tabs */
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  overflow: hidden;
+
+  /* Generate Image tab gets more height */
+  &.generate-image-tab {
+    height: 97vh;
+  }
 }
 
 .flex-row {

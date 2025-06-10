@@ -11,8 +11,8 @@ import {
   RemoveBackground,
   RemoveBackgroundHidden,
   Support,
-  TextToImage,
   Upscale,
+  GenerateImage,
 } from "@components/index";
 import { TabType } from "./types/enums";
 import {
@@ -84,6 +84,13 @@ const App = () => {
           />
         );
         break;
+      case TabType.TEXT_TO_IMAGE:
+        setPage(<GenerateImage
+            gottenKey={apiKey}
+            needToSetUpdateBalance={needToSetUpdateBalance}
+            isCreditsInsufficient={isCreditsInsufficient}
+          />);
+        break;
       case TabType.ACCOUNT:
         setPage(<Account gottenKey={apiKey} changeTab={handleTabChange} />);
         break;
@@ -138,16 +145,28 @@ const App = () => {
     setPageLogic();
   }, [tab, action, apiKey, imageBytes, isCreditsInsufficient]);
 
+  // Add class to root element based on current tab
+  useEffect(() => {
+    const rootElement = document.getElementById('root');
+    if (rootElement) {
+      if (tab === TabType.TEXT_TO_IMAGE) {
+        rootElement.classList.add('generate-image-tab');
+      } else {
+        rootElement.classList.remove('generate-image-tab');
+      }
+    }
+  }, [tab]);
+
   return (
     <>
       <div>
-        <Navbar gottenKey={apiKey} tab={tab} changeTab={handleTabChange} />
+        <Navbar gottenKey={apiKey} tab={tab} />
         {page}
         {!apiKey && <IntroPage />}
       </div>
       {apiKey && (
         <div>
-          {(tab === TabType.REMOVE_BACKGROUND || tab === TabType.UPSCALE) && (
+          {(tab === TabType.REMOVE_BACKGROUND || tab === TabType.UPSCALE || tab === TabType.TEXT_TO_IMAGE) && (
             <BalanceBanner
               gottenKey={apiKey}
               needToUpdateBalance={needToUpdateBalance}
@@ -155,7 +174,6 @@ const App = () => {
               setIsCreditsInsufficient={setIsCreditsInsufficient}
             />
           )}
-          <TextToImage />
         </div>
       )}
     </>

@@ -10,5 +10,5 @@ export { default as LoadingSpinner } from './loadingSpinner';
 export { default as Navbar } from './navbar';
 export { default as ImageSelectionBanner } from './imageSelectionBanner';
 export { default as Button } from './button';
-export { default as TextToImage } from './textToImage';
+export { default as GenerateImage } from './generateImage';
 export { default as BalanceBanner } from './balanceBanner';
