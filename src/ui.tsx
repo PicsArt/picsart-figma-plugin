@@ -145,27 +145,15 @@ const App = () => {
     setPageLogic();
   }, [tab, action, apiKey, imageBytes, isCreditsInsufficient]);
 
-  // Add class to root element based on current tab
-  useEffect(() => {
-    const rootElement = document.getElementById('root');
-    if (rootElement) {
-      if (tab === TabType.TEXT_TO_IMAGE) {
-        rootElement.classList.add('generate-image-tab');
-      } else {
-        rootElement.classList.remove('generate-image-tab');
-      }
-    }
-  }, [tab]);
-
   return (
-    <>
-      <div>
+    <div className="main-content">
+      <div className="scrollable-content">
         <Navbar gottenKey={apiKey} tab={tab} />
         {page}
         {!apiKey && <IntroPage />}
       </div>
       {apiKey && (
-        <div>
+        <div className="bottom-banner">
           {(tab === TabType.REMOVE_BACKGROUND || tab === TabType.UPSCALE || tab === TabType.TEXT_TO_IMAGE) && (
             <BalanceBanner
               gottenKey={apiKey}
@@ -176,7 +164,7 @@ const App = () => {
           )}
         </div>
       )}
-    </>
+    </div>
   );
 };
 

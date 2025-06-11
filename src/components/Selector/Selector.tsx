@@ -5,9 +5,10 @@ interface SelectorProps {
   text: string;
   options: string[];
   onChange: (arg1: string) => void;
+  tabIndex?: number;
 }
 
-const Selector: React.FC<SelectorProps> = ({ text, options, onChange }) => {
+const Selector: React.FC<SelectorProps> = ({ text, options, onChange, tabIndex }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedOption, setSelectedOption] = useState("");
   const selectorRef = useRef<HTMLDivElement | null>(null);
@@ -18,9 +19,24 @@ const Selector: React.FC<SelectorProps> = ({ text, options, onChange }) => {
 
   const handleOptionClick = (option: string) => {
     setSelectedOption(option);
-
     onChange(option);
     setIsOpen(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      setIsOpen(!isOpen);
+    } else if (e.key === 'Escape') {
+      setIsOpen(false);
+    }
+  };
+
+  const handleOptionKeyDown = (e: React.KeyboardEvent, option: string) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handleOptionClick(option);
+    }
   };
 
   const handleClickOutside = (event: MouseEvent) => {
@@ -41,7 +57,16 @@ const Selector: React.FC<SelectorProps> = ({ text, options, onChange }) => {
   }, []);
 
   return (
-    <div className={`selector`} onClick={toggleOpen} ref={selectorRef}>
+    <div 
+      className={`selector`} 
+      onClick={toggleOpen} 
+      ref={selectorRef}
+      tabIndex={tabIndex}
+      role="button"
+      onKeyDown={handleKeyDown}
+      aria-expanded={isOpen}
+      aria-haspopup="listbox"
+    >
       <div className="label">
         <span>{selectedOption || text}</span>
         <svg
@@ -60,12 +85,16 @@ const Selector: React.FC<SelectorProps> = ({ text, options, onChange }) => {
         </svg>
       </div>
       {isOpen && (
-        <div className="options">
+        <div className="options" role="listbox">
           {options.map((option, index) => (
             <div
               key={index}
               className="option"
               onClick={() => handleOptionClick(option)}
+              onKeyDown={(e) => handleOptionKeyDown(e, option)}
+              tabIndex={0}
+              role="option"
+              aria-selected={selectedOption === option}
             >
               {option}
             </div>
@@ -77,3 +106,4 @@ const Selector: React.FC<SelectorProps> = ({ text, options, onChange }) => {
 };
 
 export default Selector;
+

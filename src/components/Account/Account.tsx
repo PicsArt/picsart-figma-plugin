@@ -30,8 +30,8 @@ const Account: React.FC<AccountProps> = ({ gottenKey, changeTab }) => {
         <span className="text">Account current balance</span>
         <span className="credits-text">{keyBalance} credits</span>
       </div>
-      <Button type={BtnType.BUY_MORE} cb={() => window.open(PRICING, "_blank")} />
-      <Button type={BtnType.CHANGE_KEY} cb={() => changeTab(TabType.SET_API_KEY)} />
+      <Button type={BtnType.BUY_MORE} cb={() => window.open(PRICING, "_blank")} tabIndex={8} />
+      <Button type={BtnType.CHANGE_KEY} cb={() => changeTab(TabType.SET_API_KEY)} tabIndex={9} />
     </div>
   );
 };

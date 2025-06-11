@@ -65,12 +65,22 @@ const BalanceBanner: React.FC<Props> = ({
           <Button
             type={BtnType.ADD_CREDITS}
             cb={() => window.open(PRICING, "_blank")}
+            tabIndex={99}
           />
         </div>
       ) : (
         <div
           className="plus-container"
           onClick={() => window.open(PRICING, "_blank")}
+          tabIndex={99}
+          role="button"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              window.open(PRICING, "_blank");
+            }
+          }}
+          title="Add more credits"
         >
           <svg
             width="12"

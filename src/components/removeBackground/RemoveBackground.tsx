@@ -75,7 +75,7 @@ const RemoveBackground: React.FC<RemoveBackgroundProps> = ({
       <ImageSelectionBanner
         isImageSelected={imageBytes && imageBytes.length > 0}
       />
-      <Button type={btnTpe} cb={cb} />
+      <Button type={btnTpe} cb={cb} tabIndex={8} />
       {loading && <LoadingSpinner />}
     </div>
   );

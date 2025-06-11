@@ -83,9 +83,9 @@ const Upscale: React.FC<UpscaleProps> = ({
     <div className="upscale-container">
       <div className="upscale-header">
         <span className="header-text">Choose enhance factor</span>
-        <Selector onChange={handleOnChange} options={options} text="2" />
+        <Selector onChange={handleOnChange} options={options} text="2" tabIndex={8} />
       </div>
-      <Button type={btnTpe} cb={cb} />
+      <Button type={btnTpe} cb={cb} tabIndex={9} />
       <p className="upscale-text">
         Enhance Factor adjusts the level of improvement, such as image quality
         and resolution

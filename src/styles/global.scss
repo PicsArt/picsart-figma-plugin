@@ -16,16 +16,29 @@ body {
 
 #root {
   padding: 8px 16px 16px 16px;
-  height: 92vh; /* Default height for most tabs */
+  height: calc(100vh - 32px); 
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
   overflow: hidden;
+}
 
-  /* Generate Image tab gets more height */
-  &.generate-image-tab {
-    height: 97vh;
-  }
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 105%;
+}
+
+.scrollable-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* No scrolling - everything should fit */
+}
+
+.bottom-banner {
+  flex-shrink: 0; /* Prevent the banner from shrinking */
+  margin-top: 8px; /* Small gap between content and banner */
 }
 
 .flex-row {

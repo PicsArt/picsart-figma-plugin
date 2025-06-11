@@ -68,6 +68,14 @@ const Navbar: React.FC<Props> = ({ gottenKey, tab }) => {
             tab === TabType.REMOVE_BACKGROUND ? "selected" : ""
           }`}
           onClick={() => handleSelect(TabType.REMOVE_BACKGROUND)}
+          tabIndex={1}
+          role="button"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              handleSelect(TabType.REMOVE_BACKGROUND);
+            }
+          }}
         >
           {REMOVE_BG_TAB}
         </span>
@@ -76,6 +84,14 @@ const Navbar: React.FC<Props> = ({ gottenKey, tab }) => {
             tab === TabType.UPSCALE ? "selected" : ""
           }`}
           onClick={() => handleSelect(TabType.UPSCALE)}
+          tabIndex={2}
+          role="button"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              handleSelect(TabType.UPSCALE);
+            }
+          }}
         >
           {UPSCALE_TAB}
         </span>
@@ -84,11 +100,30 @@ const Navbar: React.FC<Props> = ({ gottenKey, tab }) => {
             tab === TabType.TEXT_TO_IMAGE ? "selected" : ""
           }`}
           onClick={() => handleSelect(TabType.TEXT_TO_IMAGE)}
+          tabIndex={3}
+          role="button"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              handleSelect(TabType.TEXT_TO_IMAGE);
+            }
+          }}
         >
           {TEXT_TO_IMAGE_TAB}
         </span>
       </div>
-      <div className="hamburger-menu" onClick={handleMenuClick}>
+      <div 
+        className="hamburger-menu" 
+        onClick={handleMenuClick}
+        tabIndex={4}
+        role="button"
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleMenuClick();
+          }
+        }}
+      >
         <div className="hamburger-menu-icon">
           <svg
             width="14"
@@ -104,13 +139,43 @@ const Navbar: React.FC<Props> = ({ gottenKey, tab }) => {
         </div>
         {gottenKey && showMenu && (
           <div ref={ref} className="hamburger-menu-hidden-content">
-            <span onClick={() => handleMenuItemClick(TabType.SET_API_KEY)}>
+            <span 
+              onClick={() => handleMenuItemClick(TabType.SET_API_KEY)}
+              tabIndex={5}
+              role="button"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleMenuItemClick(TabType.SET_API_KEY);
+                }
+              }}
+            >
               Set API Key
             </span>
-            <span onClick={() => handleMenuItemClick(TabType.ACCOUNT)}>
+            <span 
+              onClick={() => handleMenuItemClick(TabType.ACCOUNT)}
+              tabIndex={6}
+              role="button"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleMenuItemClick(TabType.ACCOUNT);
+                }
+              }}
+            >
               Account Balance
             </span>
-            <span onClick={() => window.open(HELP_CENTER, "_blank")}>
+            <span 
+              onClick={() => window.open(HELP_CENTER, "_blank")}
+              tabIndex={7}
+              role="button"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  window.open(HELP_CENTER, "_blank");
+                }
+              }}
+            >
               Support
             </span>
           </div>
