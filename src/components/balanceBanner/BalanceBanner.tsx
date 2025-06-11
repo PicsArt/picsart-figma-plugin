@@ -55,7 +55,7 @@ const BalanceBanner: React.FC<Props> = ({
   }, []);
 
   return (
-    <div className="balance-container">
+    <div className={`balance-container ${isCreditsInsufficient ? 'full-width' : ''}`}>
       <div className="text-container">
         <span className="balance-text">Balance</span>
         <span className="credits-text">{keyBalance} credits </span>

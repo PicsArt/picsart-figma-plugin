@@ -33,6 +33,39 @@ interface GenerateImageOptions {
     count?: number;
 }
 
+// Credit Management Functions
+const STORAGE_KEY_BALANCE = 'picsart_balance';
+
+export const saveCreditBalance = (balance: number): void => {
+    try {
+        figma.clientStorage.setAsync(STORAGE_KEY_BALANCE, balance);
+    } catch (error) {
+        console.error('Failed to save balance to storage:', error);
+    }
+};
+
+export const getCreditBalance = async (): Promise<number | null> => {
+    try {
+        const balance = await figma.clientStorage.getAsync(STORAGE_KEY_BALANCE);
+        return typeof balance === 'number' ? balance : null;
+    } catch (error) {
+        console.error('Failed to get balance from storage:', error);
+        return null;
+    }
+};
+
+export const extractCreditsFromResponse = (response: Response): number | null => {
+    const creditsHeader = response.headers.get('x-picsart-credit-available');
+    if (creditsHeader) {
+        const credits = parseInt(creditsHeader, 10);
+        if (!isNaN(credits)) {
+            saveCreditBalance(credits);
+            return credits;
+        }
+    }
+    return null;
+};
+
 export const sendMessageToSandBox = (success: boolean, msg: string | Uint8Array, type? : string, scaleFactor? : number, additionalData?: any) => {
     // eslint-disable-next-line no-restricted-globals
     parent.postMessage({ pluginMessage: {
@@ -50,6 +83,10 @@ export const getBalance = async (key: string) : Promise<GetBalanceReturnType> =>
         const res : BalanceResponse = await response.json();
 
         if (res.message !== TOKEN_ERR) {
+            // Save balance to storage
+            if (typeof res.credits === 'number') {
+                saveCreditBalance(res.credits);
+            }
             return {
                 success: true,
                 msg: res.credits
@@ -91,6 +128,9 @@ export const generateImage = async (prompt: string, key: string, options: Genera
             }),
         });
 
+        // Extract credits from response header
+        const updatedCredits = extractCreditsFromResponse(response);
+
         const res: GenerateImageResponse = await response.json();
 
         if (response.status === 202 && res.status === "ACCEPTED") {
@@ -98,6 +138,7 @@ export const generateImage = async (prompt: string, key: string, options: Genera
                 success: true,
                 msg: "Image generation started",
                 inferenceId: res.inference_id,
+                updatedCredits: updatedCredits
             };
         } else if (response.status === 401 && res.message === "token_error") {
             return { success: false, msg: TOKEN_ERR };
@@ -202,6 +243,9 @@ export const removeBackgroundApi = async (imageBytes: Uint8Array, key: string) =
             body: formData,
         });
 
+        // Extract credits from response header
+        const updatedCredits = extractCreditsFromResponse(response);
+
         const res = await response.json();
         if (res.message === TOKEN_ERR) {
             return { success: false, msg: TOKEN_ERR};
@@ -213,7 +257,11 @@ export const removeBackgroundApi = async (imageBytes: Uint8Array, key: string) =
         const arrayBuffer = await blob.arrayBuffer();
         const uint8Array = new Uint8Array(arrayBuffer);
 
-        return { success: true, msg: uint8Array };
+        return { 
+            success: true, 
+            msg: uint8Array,
+            updatedCredits: updatedCredits
+        };
 
     } catch (error) {
         console.error("Error removing background:", error);
@@ -236,6 +284,9 @@ export const enhanceImage = async (imageBytes: Uint8Array, key: string, scaleFac
             body: formData,
         });
 
+        // Extract credits from response header
+        const updatedCredits = extractCreditsFromResponse(response);
+
         const res = await response.json();
 
         if (res.message === TOKEN_ERR) {
@@ -248,7 +299,11 @@ export const enhanceImage = async (imageBytes: Uint8Array, key: string, scaleFac
         const arrayBuffer = await blob.arrayBuffer();
         const uint8Array = new Uint8Array(arrayBuffer);
 
-        return { success: true, msg: uint8Array };
+        return { 
+            success: true, 
+            msg: uint8Array,
+            updatedCredits: updatedCredits
+        };
 
     } catch (error) {
         console.error("Error enhancing image:", error);
