@@ -33,33 +33,11 @@ interface GenerateImageOptions {
     count?: number;
 }
 
-// Credit Management Functions
-const STORAGE_KEY_BALANCE = 'picsart_balance';
-
-export const saveCreditBalance = (balance: number): void => {
-    try {
-        figma.clientStorage.setAsync(STORAGE_KEY_BALANCE, balance);
-    } catch (error) {
-        console.error('Failed to save balance to storage:', error);
-    }
-};
-
-export const getCreditBalance = async (): Promise<number | null> => {
-    try {
-        const balance = await figma.clientStorage.getAsync(STORAGE_KEY_BALANCE);
-        return typeof balance === 'number' ? balance : null;
-    } catch (error) {
-        console.error('Failed to get balance from storage:', error);
-        return null;
-    }
-};
-
 export const extractCreditsFromResponse = (response: Response): number | null => {
     const creditsHeader = response.headers.get('x-picsart-credit-available');
     if (creditsHeader) {
         const credits = parseInt(creditsHeader, 10);
         if (!isNaN(credits)) {
-            saveCreditBalance(credits);
             return credits;
         }
     }
@@ -83,10 +61,6 @@ export const getBalance = async (key: string) : Promise<GetBalanceReturnType> =>
         const res : BalanceResponse = await response.json();
 
         if (res.message !== TOKEN_ERR) {
-            // Save balance to storage
-            if (typeof res.credits === 'number') {
-                saveCreditBalance(res.credits);
-            }
             return {
                 success: true,
                 msg: res.credits
@@ -126,13 +100,11 @@ export const generateImage = async (prompt: string, key: string, options: Genera
                 count: options.count || 1,
                 style: options.style,
             }),
-        });
-
+        })
         // Extract credits from response header
         const updatedCredits = extractCreditsFromResponse(response);
-
         const res: GenerateImageResponse = await response.json();
-
+        
         if (response.status === 202 && res.status === "ACCEPTED") {
             return {
                 success: true,
@@ -159,8 +131,8 @@ export const checkGenerateImageStatus = async (inferenceId: string, key: string)
                 "X-Picsart-Plugin": "Figma"
             },
         });
+
         const res: GenerateImageStatusResponse = await response.json();
-        
         if (response.status === 401 && res.message === "token_error") {
             return { status: "error", msg: TOKEN_ERR };
         }
@@ -185,10 +157,7 @@ export const checkGenerateImageStatus = async (inferenceId: string, key: string)
 
 export const downloadGeneratedImages = async (imageUrls: string[]) => {
     try {
-        console.log(`Downloading ${imageUrls.length} images:`, imageUrls);
-        
         const downloadPromises = imageUrls.map(async (url, index) => {
-            console.log(`Starting download of image ${index + 1}: ${url}`);
             const imageResponse = await fetch(url);
             if (!imageResponse.ok) {
                 throw new Error(`Failed to download image ${index + 1}: ${imageResponse.status}`);
@@ -196,12 +165,10 @@ export const downloadGeneratedImages = async (imageUrls: string[]) => {
             
             const blob = await imageResponse.blob();
             const arrayBuffer = await blob.arrayBuffer();
-            console.log(`Successfully downloaded image ${index + 1}, size: ${arrayBuffer.byteLength} bytes`);
             return new Uint8Array(arrayBuffer);
         });
 
         const imageArrays = await Promise.all(downloadPromises);
-        console.log(`All ${imageArrays.length} images downloaded successfully`);
         return { success: true, images: imageArrays };
 
     } catch (error) {

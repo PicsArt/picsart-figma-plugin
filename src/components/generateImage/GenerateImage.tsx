@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { generateImage, checkGenerateImageStatus, downloadGeneratedImages, sendMessageToSandBox } from "@api/index";
+import { generateImage, checkGenerateImageStatus, downloadGeneratedImages, sendMessageToSandBox, getBalance } from "@api/index";
 import {
   PRICING,
   GENERATING_IMAGE,
@@ -14,6 +14,7 @@ import {
   DEFAULT_NEGATIVE_PROMPT,
   DEFAULT_IMAGE_COUNT,
   getNextPromptExample,
+  TYPE_SET_BALANCE,
 } from "@constants/index";
 import { Button, LoadingSpinner } from "@components/index";
 import { BtnType } from "../../types/enums";
@@ -21,13 +22,11 @@ import "./styles.scss";
 
 interface GenerateImageProps {
   gottenKey: string;
-  needToSetUpdateBalance: (arg: (number: number) => number) => void;
   isCreditsInsufficient: boolean;
 }
 
 const GenerateImage: React.FC<GenerateImageProps> = ({
   gottenKey,
-  needToSetUpdateBalance,
   isCreditsInsufficient,
 }) => {
   const [loading, setLoading] = useState<boolean>(false);
@@ -85,7 +84,6 @@ const GenerateImage: React.FC<GenerateImageProps> = ({
             sendMessageToSandBox(false, downloadResult.msg as string, TYPE_NOTIFY);
           }
           setLoading(false);
-          needToSetUpdateBalance((prev) => ++prev);
         } else if (statusResult.status === "failed" || statusResult.status === "error") {
           isPolling = false;
           sendMessageToSandBox(false, statusResult.msg, TYPE_NOTIFY);
@@ -131,6 +129,8 @@ const GenerateImage: React.FC<GenerateImageProps> = ({
       
       if (response.success && response.inferenceId) {
         pollForCompletion(response.inferenceId, gottenKey, finalPrompt);
+        const balance = await getBalance(gottenKey);
+        sendMessageToSandBox(response.success, String(balance.msg), TYPE_SET_BALANCE);
       } else {
         sendMessageToSandBox(false, response.msg, TYPE_NOTIFY);
         setLoading(false);

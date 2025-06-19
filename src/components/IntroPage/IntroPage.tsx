@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { getBalance, sendMessageToSandBox } from "@api/index";
 import "./styles.scss";
 import { CONSOLE, LEARN_MORE, PICSART_IO } from "@constants/url";
-import { TYPE_SET_KEY } from "@constants/types";
+import { TYPE_SET_BALANCE, TYPE_SET_KEY } from "@constants/types";
 
 const IntroPage: React.FC = () => {
   const [value, setValue] = useState<string>("");
@@ -27,6 +27,7 @@ const IntroPage: React.FC = () => {
     const response: GetBalanceReturnType = await getBalance(value);
     if (response.success) {
       sendMessageToSandBox(true, value, TYPE_SET_KEY);
+      sendMessageToSandBox(true, response.msg as string, TYPE_SET_BALANCE);
     } else {
       setError(response.msg as string);
       sendMessageToSandBox(false, response.msg as string, TYPE_SET_KEY);

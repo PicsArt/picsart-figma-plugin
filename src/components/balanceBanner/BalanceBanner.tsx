@@ -1,64 +1,36 @@
-import React, { useEffect, useState } from "react";
-import { getBalance } from "@api/index";
+import React, { useEffect } from "react";
+import { sendMessageToSandBox } from "@api/index";
 import { PRICING } from "@constants/url";
 import { BtnType } from "../../types/enums";
 import { Button } from "@components/index";
+import { useBalance } from "../../context/BalanceContext";
+import { TYPE_GET_BALANCE } from "@constants/types";
 import "./styles.scss";
+
 interface Props {
   gottenKey: string;
-  needToUpdateBalance: number;
   isCreditsInsufficient: boolean;
   setIsCreditsInsufficient: (status: boolean) => void;
 }
 
 const BalanceBanner: React.FC<Props> = ({
   gottenKey,
-  needToUpdateBalance,
   isCreditsInsufficient,
   setIsCreditsInsufficient,
 }) => {
-  const [keyBalance, setKeyBalance] = useState<number | null>(null);
-  const [checkBalanceAgain, setCheckBalanceAgain] = useState<number>(0);
+  const { balance } = useBalance();
 
   useEffect(() => {
-    const getBalanceRequest = async () => {
-      const response: GetBalanceReturnType = await getBalance(gottenKey);
-      if (response.success) {
-        if (response.msg === 0) {
-          setIsCreditsInsufficient(true);
-        } else {
-          setIsCreditsInsufficient(false);
-        }
-        setKeyBalance(response.msg as number);
-      } else {
-        setIsCreditsInsufficient(true);
-      }
-    };
-
-    getBalanceRequest();
+    sendMessageToSandBox(true, "", TYPE_GET_BALANCE);
+    balance <= 0 ? setIsCreditsInsufficient(false) : setIsCreditsInsufficient(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [checkBalanceAgain, gottenKey, needToUpdateBalance]);
-
-  useEffect(() => {
-    const checkIfUserCameBack = () => {
-      if (document.visibilityState === "visible") {
-        setCheckBalanceAgain((prev) => prev + 1);
-      }
-    };
-    document.addEventListener("visibilitychange", () => {
-      checkIfUserCameBack();
-    });
-
-    return () => {
-      document.removeEventListener("visibilitychange", checkIfUserCameBack);
-    };
-  }, []);
+  }, [ gottenKey ]);
 
   return (
     <div className={`balance-container ${isCreditsInsufficient ? 'full-width' : ''}`}>
       <div className="text-container">
         <span className="balance-text">Balance</span>
-        <span className="credits-text">{keyBalance} credits </span>
+        <span className="credits-text">{balance} credits </span>
       </div>
       {isCreditsInsufficient ? (
         <div style={{ width: 180, height: 30 }}>

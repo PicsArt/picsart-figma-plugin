@@ -1,3 +1,4 @@
+import { getBalance } from "@api/index";
 import {
   API_KEY_NAME,
   TAB_REMOVE_BACKGROUND,
@@ -13,6 +14,7 @@ import {
   sendImageSelectionStatus,
 } from "@services/ImageProcessor";
 import { setMessageListeners } from "@services/MessageListeners";
+import CustomSessionStorage from "@services/CustomSessionStorage";
 
 const RemoveBackgroundController = async (isFromIntroController: boolean) => {
   const apiKey = await figma.clientStorage.getAsync(API_KEY_NAME);
@@ -44,6 +46,9 @@ const RemoveBackgroundController = async (isFromIntroController: boolean) => {
     removeWithUI(apiKey);
   }
   setMessageListeners(figma);
+  const balance = await getBalance(apiKey);
+  const sessionStorage: CustomSessionStorage = CustomSessionStorage.getInstance();
+  sessionStorage.setBalance(balance.msg as number);
 };
 
 const InstantlyRemove = async (apiKey: string) => {

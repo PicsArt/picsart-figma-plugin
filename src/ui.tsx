@@ -2,6 +2,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
+import { BalanceProvider, useBalance } from "./context/BalanceContext";
 import {
   Navbar,
   Account,
@@ -18,6 +19,7 @@ import { TabType } from "./types/enums";
 import {
   TYPE_ACCOUNT,
   TYPE_ACTION,
+  TYPE_GET_BALANCE,
   TYPE_IMAGEBYTES,
   TYPE_KEY,
   TYPE_TAB,
@@ -28,12 +30,11 @@ import { getBalance, sendMessageToSandBox } from "./api";
 
 const App = () => {
   const [tab, setTab] = useState<TabType>(TabType.REMOVE_BACKGROUND);
-
+  const { balance, setBalance } = useBalance();
   const [page, setPage] = useState<JSX.Element | null>(null);
   const [apiKey, setApiKey] = useState<string>("");
   const [action, setAction] = useState();
   const [imageBytes, setImageBytes] = useState<Uint8Array>(new Uint8Array());
-  const [needToUpdateBalance, needToSetUpdateBalance] = useState<number>(0);
   const [isCreditsInsufficient, setIsCreditsInsufficient] =
     useState<boolean>(false);
 
@@ -68,7 +69,6 @@ const App = () => {
             setImageBytes={setImageBytes}
             gottenKey={apiKey}
             imageBytes={imageBytes}
-            needToSetUpdateBalance={needToSetUpdateBalance}
             isCreditsInsufficient={isCreditsInsufficient}
           />
         );
@@ -79,7 +79,6 @@ const App = () => {
             setImageBytes={setImageBytes}
             gottenKey={apiKey}
             imageBytes={imageBytes}
-            needToSetUpdateBalance={needToSetUpdateBalance}
             isCreditsInsufficient={isCreditsInsufficient}
           />
         );
@@ -87,12 +86,11 @@ const App = () => {
       case TabType.TEXT_TO_IMAGE:
         setPage(<GenerateImage
             gottenKey={apiKey}
-            needToSetUpdateBalance={needToSetUpdateBalance}
             isCreditsInsufficient={isCreditsInsufficient}
           />);
         break;
       case TabType.ACCOUNT:
-        setPage(<Account gottenKey={apiKey} changeTab={handleTabChange} />);
+        setPage(<Account setIsCreditsInsufficient={setIsCreditsInsufficient} gottenKey={apiKey} changeTab={handleTabChange} />);
         break;
       case TabType.SUPPORT:
         setPage(<Support />);
@@ -101,7 +99,6 @@ const App = () => {
         setPage(
           <ChangeAPIkey
             changeKey={setApiKey}
-            needToSetUpdateBalance={needToSetUpdateBalance}
           />
         );
         break;
@@ -117,8 +114,10 @@ const App = () => {
       if (!pluginMessage) return;
       const { type, payload } = pluginMessage;
 
-      if (type === TYPE_KEY) setApiKey(payload);
-      else if (type === TYPE_VALIDATE_KEY) {
+      if (type === TYPE_KEY) {
+        setApiKey(payload);
+        sendMessageToSandBox(true, "", TYPE_GET_BALANCE);
+      } else if (type === TYPE_VALIDATE_KEY) {
         const res = await getBalance(payload);
         if (res.success && res.msg !== 0) {
           sendMessageToSandBox(true, "", TYPE_VALIDATE_KEY);
@@ -131,6 +130,8 @@ const App = () => {
         setAction(payload);
       } else if (type === TYPE_TAB) {
         setTab(payload);
+      } else if (type === TYPE_GET_BALANCE) {
+        setBalance(payload);
       }
     };
 
@@ -143,13 +144,13 @@ const App = () => {
 
   useEffect(() => {
     setPageLogic();
-  }, [tab, action, apiKey, imageBytes, isCreditsInsufficient]);
+  }, [tab, action, apiKey, imageBytes, isCreditsInsufficient, balance]);
 
   return (
     <div className="main-content">
       <div className="scrollable-content">
-        <Navbar gottenKey={apiKey} tab={tab} />
-        {page}
+        {apiKey && <Navbar gottenKey={apiKey} tab={tab} />}
+        {apiKey && page}
         {!apiKey && <IntroPage />}
       </div>
       {apiKey && (
@@ -157,7 +158,6 @@ const App = () => {
           {(tab === TabType.REMOVE_BACKGROUND || tab === TabType.UPSCALE || tab === TabType.TEXT_TO_IMAGE) && (
             <BalanceBanner
               gottenKey={apiKey}
-              needToUpdateBalance={needToUpdateBalance}
               isCreditsInsufficient={isCreditsInsufficient}
               setIsCreditsInsufficient={setIsCreditsInsufficient}
             />
@@ -171,5 +171,9 @@ const App = () => {
 const rootElement = document.getElementById("root");
 if (rootElement) {
   const root = createRoot(rootElement);
-  root.render(<App />);
+  root.render(
+    <BalanceProvider>
+      <App />
+    </BalanceProvider>
+  );
 }

@@ -88,8 +88,6 @@ const setFetchedImage = async (
 
 export const addGeneratedImages = async (images: Uint8Array[], prompt: string): Promise<string> => {
   try {
-    console.log(`Adding ${images.length} generated images for prompt: "${prompt}"`);
-    
     let picsartContainer = figma.currentPage.findOne(node =>
       node.type === "FRAME" && node.name === "Picsart"
     ) as FrameNode;
@@ -138,8 +136,6 @@ export const addGeneratedImages = async (images: Uint8Array[], prompt: string): 
           }
         }
         
-        console.log(`Found bottom element among leftmost: "${bottomLeftmostNode.name}" at x: ${leftmostX}, y: ${leftmostY}`);
-        
         picsartContainer.x = leftmostX;
         picsartContainer.y = leftmostY + bottomLeftmostNode.height + 50;
       }
@@ -158,7 +154,6 @@ export const addGeneratedImages = async (images: Uint8Array[], prompt: string): 
         const textNodes = generationFrame.findAll(node => node.type === "TEXT") as TextNode[];
         for (const textNode of textNodes) {
           if (typeof textNode.characters === 'string' && textNode.characters.includes(prompt)) {
-            console.log(`Found existing generation for prompt: "${prompt}"`);
             existingGeneration = generationFrame;
             
             const imagesFrame = generationFrame.findOne(node => 
@@ -170,7 +165,6 @@ export const addGeneratedImages = async (images: Uint8Array[], prompt: string): 
                 node.type === "RECTANGLE" && node.name.startsWith("Image ")
               );
               maxImageNumber = existingImages.length;
-              console.log(`Found ${maxImageNumber} existing images in this generation`);
             }
             break;
           }
@@ -185,8 +179,6 @@ export const addGeneratedImages = async (images: Uint8Array[], prompt: string): 
       imagesFrame = existingGeneration.findOne(node => 
         node.type === "FRAME" && node.name === "Generated Images"
       ) as FrameNode;
-      
-      console.log(`Adding to existing generation. Current images: ${maxImageNumber}`);
     } else {
       const generationGroup = figma.createFrame();
       generationGroup.name = `Generation: ${prompt.substring(0, 30)}${prompt.length > 30 ? '...' : ''}`;
@@ -222,8 +214,6 @@ export const addGeneratedImages = async (images: Uint8Array[], prompt: string): 
       generationGroup.appendChild(promptText);
       generationGroup.appendChild(imagesFrame);
       picsartContainer.appendChild(generationGroup);
-      
-      console.log(`Created new generation for prompt: "${prompt}"`);
     }
 
     for (let i = 0; i < images.length; i++) {
@@ -231,8 +221,6 @@ export const addGeneratedImages = async (images: Uint8Array[], prompt: string): 
       const imageNumber = maxImageNumber + i + 1;
       
       try {
-        console.log(`Creating image ${imageNumber}, size: ${imageData.byteLength} bytes`);
-        
         const imageNode = figma.createRectangle();
         imageNode.name = `Image ${imageNumber}`;
         
@@ -247,7 +235,6 @@ export const addGeneratedImages = async (images: Uint8Array[], prompt: string): 
         imageNode.resize(1024, 1024);
         
         imagesFrame.appendChild(imageNode);
-        console.log(`Successfully added Image ${imageNumber}`);
         
       } catch (error) {
         console.error(`Error adding image ${imageNumber}:`, error);
@@ -283,12 +270,7 @@ export const addGeneratedImages = async (images: Uint8Array[], prompt: string): 
       if (i > 0) totalHeight += picsartContainer.itemSpacing;
     }
 
-    console.log(`Container now has ${picsartContainer.children.length} generations`);
-    console.log(`Calculated total height: ${totalHeight}, max width: ${maxWidth}`);
-
     picsartContainer.resize(maxWidth, totalHeight);
-    
-    console.log(`Container resized to: ${picsartContainer.width}x${picsartContainer.height}`);
 
     figma.viewport.scrollAndZoomIntoView([picsartContainer]);
 
