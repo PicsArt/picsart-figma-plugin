@@ -13,6 +13,8 @@ export const TYPE_CLOSE_PLUGIN = "validateclose-plugin" as const;
 export const TYPE_TEXT_TO_IMAGE_TAB = "text-to-image-tab" as const;
 export const TYPE_GENERATED_IMAGES = "generated-images" as const;
 export const TYPE_SWITCH_TAB = "switch-tab" as const;
+export const TYPE_SET_BALANCE = "set-balance" as const;
+export const TYPE_GET_BALANCE = "get-balance" as const;
 
 const TYPES = {
   TYPE_IMAGEBYTES,
@@ -28,7 +30,9 @@ const TYPES = {
   TYPE_CLOSE_PLUGIN,
   TYPE_TEXT_TO_IMAGE_TAB,
   TYPE_GENERATED_IMAGES,
-  TYPE_SWITCH_TAB
+  TYPE_SWITCH_TAB,
+  TYPE_SET_BALANCE,
+  TYPE_GET_BALANCE,
 };
 
 export default TYPES;

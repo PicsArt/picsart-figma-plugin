@@ -1,11 +1,12 @@
 import React, { useState } from "react";
-import Selector from "@components/selector/Selector";
+import Selector from "@components/Selector/Selector";
 import { enhanceImage, sendMessageToSandBox } from "@api/index";
 import {
   PRICING,
   PROCESSING_IMAGE,
   TYPE_IMAGEBYTES,
   TYPE_NOTIFY,
+  TYPE_SET_BALANCE,
 } from "@constants/index";
 import { Button, LoadingSpinner } from "@components/index";
 import { BtnType } from "../../types/enums";
@@ -15,7 +16,6 @@ interface UpscaleProps {
   gottenKey: string;
   imageBytes: Uint8Array;
   setImageBytes: (bytes: Uint8Array) => void;
-  needToSetUpdateBalance: (arg: (number: number) => number) => void;
   isCreditsInsufficient: boolean;
 }
 const options = ["2", "4", "6", "8"];
@@ -24,7 +24,6 @@ const Upscale: React.FC<UpscaleProps> = ({
   gottenKey,
   imageBytes,
   setImageBytes,
-  needToSetUpdateBalance,
   isCreditsInsufficient,
 }) => {
   const [loading, setLoading] = useState<boolean>(false);
@@ -53,7 +52,7 @@ const Upscale: React.FC<UpscaleProps> = ({
       scaleFactor
     );
     setLoading(false);
-    needToSetUpdateBalance((prev) => ++prev);
+    sendMessageToSandBox(true, String(response.updatedCredits), TYPE_SET_BALANCE);
   };
 
   const handleOnChange = (val: string) => {
@@ -83,9 +82,9 @@ const Upscale: React.FC<UpscaleProps> = ({
     <div className="upscale-container">
       <div className="upscale-header">
         <span className="header-text">Choose enhance factor</span>
-        <Selector onChange={handleOnChange} options={options} text="2" />
+        <Selector onChange={handleOnChange} options={options} text="2" tabIndex={8} />
       </div>
-      <Button type={btnTpe} cb={cb} />
+      <Button type={btnTpe} cb={cb} tabIndex={9} />
       <p className="upscale-text">
         Enhance Factor adjusts the level of improvement, such as image quality
         and resolution

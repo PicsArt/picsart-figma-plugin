@@ -33,6 +33,17 @@ interface GenerateImageOptions {
     count?: number;
 }
 
+export const extractCreditsFromResponse = (response: Response): number | null => {
+    const creditsHeader = response.headers.get('x-picsart-credit-available');
+    if (creditsHeader) {
+        const credits = parseInt(creditsHeader, 10);
+        if (!isNaN(credits)) {
+            return credits;
+        }
+    }
+    return null;
+};
+
 export const sendMessageToSandBox = (success: boolean, msg: string | Uint8Array, type? : string, scaleFactor? : number, additionalData?: any) => {
     // eslint-disable-next-line no-restricted-globals
     parent.postMessage({ pluginMessage: {
@@ -89,15 +100,17 @@ export const generateImage = async (prompt: string, key: string, options: Genera
                 count: options.count || 1,
                 style: options.style,
             }),
-        });
-
+        })
+        // Extract credits from response header
+        const updatedCredits = extractCreditsFromResponse(response);
         const res: GenerateImageResponse = await response.json();
-
+        
         if (response.status === 202 && res.status === "ACCEPTED") {
             return {
                 success: true,
                 msg: "Image generation started",
                 inferenceId: res.inference_id,
+                updatedCredits: updatedCredits
             };
         } else if (response.status === 401 && res.message === "token_error") {
             return { success: false, msg: TOKEN_ERR };
@@ -118,8 +131,8 @@ export const checkGenerateImageStatus = async (inferenceId: string, key: string)
                 "X-Picsart-Plugin": "Figma"
             },
         });
+
         const res: GenerateImageStatusResponse = await response.json();
-        
         if (response.status === 401 && res.message === "token_error") {
             return { status: "error", msg: TOKEN_ERR };
         }
@@ -144,10 +157,7 @@ export const checkGenerateImageStatus = async (inferenceId: string, key: string)
 
 export const downloadGeneratedImages = async (imageUrls: string[]) => {
     try {
-        console.log(`Downloading ${imageUrls.length} images:`, imageUrls);
-        
         const downloadPromises = imageUrls.map(async (url, index) => {
-            console.log(`Starting download of image ${index + 1}: ${url}`);
             const imageResponse = await fetch(url);
             if (!imageResponse.ok) {
                 throw new Error(`Failed to download image ${index + 1}: ${imageResponse.status}`);
@@ -155,12 +165,10 @@ export const downloadGeneratedImages = async (imageUrls: string[]) => {
             
             const blob = await imageResponse.blob();
             const arrayBuffer = await blob.arrayBuffer();
-            console.log(`Successfully downloaded image ${index + 1}, size: ${arrayBuffer.byteLength} bytes`);
             return new Uint8Array(arrayBuffer);
         });
 
         const imageArrays = await Promise.all(downloadPromises);
-        console.log(`All ${imageArrays.length} images downloaded successfully`);
         return { success: true, images: imageArrays };
 
     } catch (error) {
@@ -202,6 +210,9 @@ export const removeBackgroundApi = async (imageBytes: Uint8Array, key: string) =
             body: formData,
         });
 
+        // Extract credits from response header
+        const updatedCredits = extractCreditsFromResponse(response);
+
         const res = await response.json();
         if (res.message === TOKEN_ERR) {
             return { success: false, msg: TOKEN_ERR};
@@ -213,7 +224,11 @@ export const removeBackgroundApi = async (imageBytes: Uint8Array, key: string) =
         const arrayBuffer = await blob.arrayBuffer();
         const uint8Array = new Uint8Array(arrayBuffer);
 
-        return { success: true, msg: uint8Array };
+        return { 
+            success: true, 
+            msg: uint8Array,
+            updatedCredits: updatedCredits
+        };
 
     } catch (error) {
         console.error("Error removing background:", error);
@@ -236,6 +251,9 @@ export const enhanceImage = async (imageBytes: Uint8Array, key: string, scaleFac
             body: formData,
         });
 
+        // Extract credits from response header
+        const updatedCredits = extractCreditsFromResponse(response);
+
         const res = await response.json();
 
         if (res.message === TOKEN_ERR) {
@@ -248,7 +266,11 @@ export const enhanceImage = async (imageBytes: Uint8Array, key: string, scaleFac
         const arrayBuffer = await blob.arrayBuffer();
         const uint8Array = new Uint8Array(arrayBuffer);
 
-        return { success: true, msg: uint8Array };
+        return { 
+            success: true, 
+            msg: uint8Array,
+            updatedCredits: updatedCredits
+        };
 
     } catch (error) {
         console.error("Error enhancing image:", error);

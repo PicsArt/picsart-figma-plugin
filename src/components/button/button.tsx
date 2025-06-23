@@ -20,6 +20,7 @@ import { BtnType } from "./../../types/enums";
 interface Props {
   type: BtnType;
   cb?: (factor?: string) => void;
+  tabIndex?: number;
 }
 
 const btnTypes: Record<BtnType, string> = {
@@ -41,11 +42,19 @@ const btnTypes: Record<BtnType, string> = {
   [BtnType.ADD_CREDITS]: ADD_CREDITS_BTN_TEXT,
 };
 
-const button: React.FC<Props> = ({ type, cb }) => {
+const button: React.FC<Props> = ({ type, cb, tabIndex }) => {
   return (
     <div
       onClick={() => (cb ? cb() : void 0)}
       className={`btn-container ${type}`}
+      tabIndex={tabIndex}
+      role="button"
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          if (cb) cb();
+        }
+      }}
     >
       <span>{btnTypes[type]}</span>
     </div>

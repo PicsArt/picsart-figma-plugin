@@ -5,6 +5,7 @@ import {
   PROCESSING_IMAGE,
   TYPE_IMAGEBYTES,
   TYPE_NOTIFY,
+  TYPE_SET_BALANCE,
 } from "@constants/index";
 import {
   Button,
@@ -17,7 +18,6 @@ interface RemoveBackgroundProps {
   gottenKey: string;
   imageBytes: Uint8Array;
   setImageBytes: (bytes: Uint8Array) => void;
-  needToSetUpdateBalance: (arg: (number: number) => number) => void;
   isCreditsInsufficient: boolean;
 }
 
@@ -25,7 +25,6 @@ const RemoveBackground: React.FC<RemoveBackgroundProps> = ({
   gottenKey,
   imageBytes,
   setImageBytes,
-  needToSetUpdateBalance,
   isCreditsInsufficient,
 }) => {
   const [loading, setLoading] = useState<boolean>(false);
@@ -43,8 +42,8 @@ const RemoveBackground: React.FC<RemoveBackgroundProps> = ({
     const response = await removeBackgroundApi(imageBytes, gottenKey);
     setImageBytes(response.msg as Uint8Array);
     sendMessageToSandBox(response.success, response.msg, TYPE_IMAGEBYTES);
+    sendMessageToSandBox(true, String(response.updatedCredits), TYPE_SET_BALANCE); 
     setLoading(false);
-    needToSetUpdateBalance((prev) => ++prev);
   };
 
   let btnTpe = null;
@@ -75,7 +74,7 @@ const RemoveBackground: React.FC<RemoveBackgroundProps> = ({
       <ImageSelectionBanner
         isImageSelected={imageBytes && imageBytes.length > 0}
       />
-      <Button type={btnTpe} cb={cb} />
+      <Button type={btnTpe} cb={cb} tabIndex={8} />
       {loading && <LoadingSpinner />}
     </div>
   );

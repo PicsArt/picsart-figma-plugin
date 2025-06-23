@@ -3,6 +3,7 @@ import { sendImageSelectionStatus } from "@services/ImageProcessor";
 import AccountController from "../controllers/AccountController";
 import SupportController from "../controllers/SupportController";
 import GenerateImageController from "../controllers/GenerateImageController";
+import CustomSessionStorage from "./CustomSessionStorage";
 import {
   TYPE_IMAGEBYTES,
   TYPE_NOTIFY,
@@ -24,7 +25,11 @@ import {
   WIDGET_HEIGHT_WITHOUT_KEY,
   WIDGET_HEIGHT_UPSCALE_WITH_KEY,
   WIDGET_HEIGHT_UPSCALE_WITHOUT_KEY,
+  TYPE_SET_BALANCE,
+  TYPE_GET_BALANCE,
 } from "@constants/index";
+import { getBalance } from "@api/index";
+
 
 // Helper function to reduce code duplication in tab switching
 const showUIForTab = (apiKey: string, height: number, tabValue: string, includeImageSelection = true) => {
@@ -34,7 +39,7 @@ const showUIForTab = (apiKey: string, height: number, tabValue: string, includeI
     height,
   });
 
-  setTimeout(() => {
+  setTimeout(async () => {
     figma.ui.postMessage({
       type: TYPE_KEY,
       payload: apiKey,
@@ -48,6 +53,14 @@ const showUIForTab = (apiKey: string, height: number, tabValue: string, includeI
       type: TYPE_TAB,
       payload: tabValue,
     });
+    
+    const sessionStorage: CustomSessionStorage = CustomSessionStorage.getInstance();
+
+    if (apiKey && !sessionStorage.getCurrentSession()) {
+      const balance = await getBalance(apiKey);
+      sessionStorage.setBalance(balance.msg as number);
+      sessionStorage.setCurrentSession();
+    }
   }, 400);
 };
 
@@ -155,6 +168,22 @@ export const setMessageListeners = (figma : PluginAPI) => {
       if (response.type === TYPE_SET_KEY) {
         figma.clientStorage.setAsync(API_KEY_NAME, response.msg).then(() => {
           figma.notify(KEY_SET);
+        });
+      }
+      if (response.type === TYPE_SET_BALANCE) {
+        const sessionStorage: CustomSessionStorage = CustomSessionStorage.getInstance();
+        sessionStorage.setBalance(response.msg);
+        figma.ui.postMessage({
+          type: TYPE_GET_BALANCE,
+          payload: sessionStorage.getBalance(),
+        });
+      }
+
+      if (response.type === TYPE_GET_BALANCE) {
+        const sessionStorage: CustomSessionStorage = CustomSessionStorage.getInstance();
+        figma.ui.postMessage({
+          type: TYPE_GET_BALANCE,
+          payload: sessionStorage.getBalance(),
         });
       }
     }

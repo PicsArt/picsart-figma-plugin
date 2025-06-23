@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import Selector from "@components/selector/Selector";
+import Selector from "@components/Selector/Selector";
 import { enhanceImage, sendMessageToSandBox } from "@api/index";
-import { PROCESSING_IMAGE, TYPE_IMAGEBYTES, TYPE_NOTIFY } from "@constants/index";
+import { PROCESSING_IMAGE, TYPE_IMAGEBYTES, TYPE_NOTIFY, TYPE_SET_BALANCE } from "@constants/index";
 import './styles.scss';
 
 interface UpscaleProps {
@@ -19,6 +19,7 @@ const Enhance: React.FC<UpscaleProps> = ({ gottenKey, imageBytes }) => {
 
         const response = await enhanceImage(imageBytes, gottenKey, scaleFactor);
         sendMessageToSandBox(response.success, response.msg, TYPE_IMAGEBYTES, scaleFactor);
+        sendMessageToSandBox(true, String(response.updatedCredits), TYPE_SET_BALANCE);
     }
 
     const handleOnChange = (val : string) => {

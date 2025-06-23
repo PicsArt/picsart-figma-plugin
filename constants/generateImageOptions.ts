@@ -49,7 +49,6 @@ export const ASPECT_RATIO_DIMENSIONS = {
 } as const;
 
 export const PRESET_TAGS = [
-  "Popular cat",
   "Ads", 
   "Landscape"
 ] as const;
