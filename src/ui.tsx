@@ -132,6 +132,7 @@ const App = () => {
         setTab(payload);
       } else if (type === TYPE_GET_BALANCE) {
         setBalance(payload);
+        payload <= 0 ? setIsCreditsInsufficient(true) : setIsCreditsInsufficient(false);
       }
     };
 

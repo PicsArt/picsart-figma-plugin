@@ -22,18 +22,19 @@ const BalanceBanner: React.FC<Props> = ({
 
   useEffect(() => {
     sendMessageToSandBox(true, "", TYPE_GET_BALANCE);
-    balance <= 0 ? setIsCreditsInsufficient(false) : setIsCreditsInsufficient(true);
+    balance <= 0 ? setIsCreditsInsufficient(true) : setIsCreditsInsufficient(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ gottenKey ]);
 
   return (
-    <div className={`balance-container ${isCreditsInsufficient ? 'full-width' : ''}`}>
+    // <div className={`balance-container ${isCreditsInsufficient ? 'full-width' : ''}`}>
+    <div className={"balance-container"}>
       <div className="text-container">
         <span className="balance-text">Balance</span>
         <span className="credits-text">{balance} credits </span>
       </div>
       {isCreditsInsufficient ? (
-        <div style={{ width: 180, height: 30 }}>
+        <div style={{ width: 120, height: 30 }}>
           <Button
             type={BtnType.ADD_CREDITS}
             cb={() => window.open(PRICING, "_blank")}
