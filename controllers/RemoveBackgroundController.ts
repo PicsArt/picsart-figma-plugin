@@ -6,6 +6,7 @@ import {
   TYPE_KEY,
   TYPE_TAB,
   TYPE_VALIDATE_KEY,
+  TYPE_GET_BALANCE,
   WIDGET_HEIGHT_WITH_KEY,
   WIDGET_HEIGHT_WITHOUT_KEY,
 } from "@constants/index";
@@ -46,9 +47,17 @@ const RemoveBackgroundController = async (isFromIntroController: boolean) => {
     removeWithUI(apiKey);
   }
   setMessageListeners(figma);
-  const balance = await getBalance(apiKey);
+
   const sessionStorage: CustomSessionStorage = CustomSessionStorage.getInstance();
-  sessionStorage.setBalance(balance.msg as number);
+  
+  if (apiKey && !sessionStorage.getCurrentSession()) {
+    const balance = await getBalance(apiKey);
+    sessionStorage.setBalance(balance.msg as number);
+    figma.ui.postMessage({
+      type: TYPE_GET_BALANCE,
+      payload: sessionStorage.getBalance(),
+    });
+  }
 };
 
 const InstantlyRemove = async (apiKey: string) => {
