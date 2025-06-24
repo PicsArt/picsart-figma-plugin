@@ -1,10 +1,12 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { getBalance, sendMessageToSandBox } from "@api/index";
 import "./styles.scss";
 import { CONSOLE, LEARN_MORE, PICSART_IO } from "@constants/url";
 import { TYPE_SET_BALANCE, TYPE_SET_KEY } from "@constants/types";
+import { useActive } from "../../context/ActiveContext";
 
 const IntroPage: React.FC = () => {
+  const { isActive } = useActive();
   const [value, setValue] = useState<string>("");
   const [disabled, setDisabled] = useState<boolean>(true);
   const [error, setError] = useState<string>();
@@ -14,6 +16,12 @@ const IntroPage: React.FC = () => {
   ): void => {
     const newValue = event.target.value;
     setValue(newValue);
+    if (newValue) {
+      setDisabled(false);
+    } else {
+      setDisabled(true);
+    }
+    setError("");
   };
 
   const handleClcik = (event: React.MouseEvent<HTMLButtonElement>): void => {
@@ -33,18 +41,8 @@ const IntroPage: React.FC = () => {
       sendMessageToSandBox(false, response.msg as string, TYPE_SET_KEY);
     }
   };
-
-  useEffect(() => {
-    if (value) {
-      setDisabled(false);
-      setError("");
-    } else {
-      setDisabled(true);
-      setError("");
-    }
-  }, [value]);
-
-  return (
+  
+  return (<>{ isActive &&
     <div className="intro-page">
       <div className="container">
         <div className="text-container">
@@ -90,7 +88,7 @@ const IntroPage: React.FC = () => {
         </div>
       </div>
     </div>
-  );
+}</>);
 };
 
 export default IntroPage;

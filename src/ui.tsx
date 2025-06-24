@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { BalanceProvider, useBalance } from "./context/BalanceContext";
+import { ActiveProvider, useActive } from "./context/ActiveContext";
 import {
   Navbar,
   Account,
@@ -29,6 +30,7 @@ import "@styles/global.scss";
 import { getBalance, sendMessageToSandBox } from "./api";
 
 const App = () => {
+  const { setIsActive } = useActive()
   const [tab, setTab] = useState<TabType>(TabType.REMOVE_BACKGROUND);
   const { balance, setBalance } = useBalance();
   const [page, setPage] = useState<JSX.Element | null>(null);
@@ -116,21 +118,29 @@ const App = () => {
 
       if (type === TYPE_KEY) {
         setApiKey(payload);
+        setIsActive(() => true);
         sendMessageToSandBox(true, "", TYPE_GET_BALANCE);
-      } else if (type === TYPE_VALIDATE_KEY) {
+      } 
+      else if (type === TYPE_VALIDATE_KEY) {
         const res = await getBalance(payload);
         if (res.success && res.msg !== 0) {
+          setIsActive(() => true);
           sendMessageToSandBox(true, "", TYPE_VALIDATE_KEY);
         } else {
           sendMessageToSandBox(false, "", TYPE_VALIDATE_KEY);
         }
-      } else if (type === TYPE_IMAGEBYTES) {
+      } 
+      else if (type === TYPE_IMAGEBYTES) {
+        setIsActive(() => true);
         setImageBytes(payload);
       } else if (type === TYPE_ACTION) {
+        setIsActive(() => true);
         setAction(payload);
       } else if (type === TYPE_TAB) {
+        setIsActive(() => true);
         setTab(payload);
       } else if (type === TYPE_GET_BALANCE) {
+        setIsActive(() => true);
         setBalance(payload);
         payload <= 0 ? setIsCreditsInsufficient(true) : setIsCreditsInsufficient(false);
       }
@@ -146,7 +156,7 @@ const App = () => {
   useEffect(() => {
     setPageLogic();
   }, [tab, action, apiKey, imageBytes, isCreditsInsufficient, balance]);
-
+  
   return (
     <div className="main-content">
       <div className="scrollable-content">
@@ -173,8 +183,10 @@ const rootElement = document.getElementById("root");
 if (rootElement) {
   const root = createRoot(rootElement);
   root.render(
-    <BalanceProvider>
-      <App />
-    </BalanceProvider>
+    <ActiveProvider>
+      <BalanceProvider>
+        <App />
+      </BalanceProvider>
+    </ActiveProvider>
   );
 }

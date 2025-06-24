@@ -39,7 +39,15 @@ const showUIForTab = (apiKey: string, height: number, tabValue: string, includeI
     height,
   });
 
-  setTimeout(async () => {
+  setTimeout(() => {
+    const sessionStorage: CustomSessionStorage = CustomSessionStorage.getInstance();
+
+    if (apiKey && !sessionStorage.getCurrentSession()) {
+      getBalance(apiKey).then((balance) => {
+        sessionStorage.setBalance(balance.msg as number);
+        sessionStorage.setCurrentSession();
+      });
+    }
     figma.ui.postMessage({
       type: TYPE_KEY,
       payload: apiKey,
@@ -54,13 +62,6 @@ const showUIForTab = (apiKey: string, height: number, tabValue: string, includeI
       payload: tabValue,
     });
     
-    const sessionStorage: CustomSessionStorage = CustomSessionStorage.getInstance();
-
-    if (apiKey && !sessionStorage.getCurrentSession()) {
-      const balance = await getBalance(apiKey);
-      sessionStorage.setBalance(balance.msg as number);
-      sessionStorage.setCurrentSession();
-    }
   }, 400);
 };
 
@@ -110,7 +111,6 @@ export const setMessageListeners = (figma : PluginAPI) => {
         setTimeout(async () => {
           try {
             const apiKey = await figma.clientStorage.getAsync(API_KEY_NAME);
-            
             switch (response.tab) {
               case TAB_REMOVE_BACKGROUND:
                 showUIForTab(
