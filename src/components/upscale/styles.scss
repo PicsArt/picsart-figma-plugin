@@ -1,7 +1,9 @@
 
+// No bottom spacer: trailing margin inside this stretched flex box renders as
+// nothing but still counts as content height, which pushes the balance banner
+// out of the window once the advanced panel is open.
 .upscale-container {
   margin-top: 12px;
-  margin-bottom: 37px;
   display: flex;
   flex-direction: column;
   gap: 12px;

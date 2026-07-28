@@ -400,10 +400,11 @@
   overflow: hidden;
   transition: all 0.3s ease; /* Smooth transition without delay since delay is handled in JS */
   
-  /* When visible, show with animation */
+  /* When visible, show with animation. The cap only bounds the reveal
+     animation, so it has to clear the tallest panel (four controls). */
   &.visible {
     opacity: 1;
-    max-height: 200px;
+    max-height: 400px;
   }
 }
 
