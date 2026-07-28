@@ -33,6 +33,15 @@ interface GenerateImageOptions {
     count?: number;
 }
 
+// The GenAI API reports lowercase statuses ("processing", "success") while an
+// earlier revision of this endpoint used uppercase ones ("FINISHED", "DONE").
+// Match case-insensitively against both so a vocabulary change on either side
+// cannot turn a finished generation back into a timeout.
+const SUCCESS_STATUSES = ["success", "finished", "done"];
+
+const isStatus = (status: string | undefined, expected: string[]): boolean =>
+    !!status && expected.indexOf(status.toLowerCase()) !== -1;
+
 export const extractCreditsFromResponse = (response: Response): number | null => {
     const creditsHeader = response.headers.get('x-picsart-credit-available');
     if (creditsHeader) {
@@ -105,7 +114,10 @@ export const generateImage = async (prompt: string, key: string, options: Genera
         const updatedCredits = extractCreditsFromResponse(response);
         const res: GenerateImageResponse = await response.json();
         
-        if (response.status === 202 && res.status === "ACCEPTED") {
+        // An accepted job is identified by 202 plus the id we need to poll with,
+        // not by the status string: the API answers "processing" here, so
+        // matching on a literal would reject the request it just accepted.
+        if (response.status === 202 && res.inference_id) {
             return {
                 success: true,
                 msg: "Image generation started",
@@ -138,19 +150,21 @@ export const checkGenerateImageStatus = async (inferenceId: string, key: string)
             return { status: "error", msg: TOKEN_ERR };
         }
         
-        if (res.status === "FINISHED" && res.data) {
+        if (isStatus(res.status, SUCCESS_STATUSES) && res.data) {
             // Return all completed image URLs
-            const completedImages = res.data.filter(item => item.status === "DONE");
+            const completedImages = res.data.filter(item => isStatus(item.status, SUCCESS_STATUSES));
             if (completedImages.length > 0) {
-                return { 
-                    status: "FINISHED", 
-                    msg: "Images generated successfully", 
+                return {
+                    status: "FINISHED",
+                    msg: "Images generated successfully",
                     imageUrls: completedImages.map(img => img.url)
                 };
             }
         }
-        
-        return { status: res.status, msg: res.status };
+
+        // Still in flight, or a terminal failure the caller reports verbatim —
+        // prefer the API's own wording over echoing the bare status back.
+        return { status: res.status, msg: res.detail || res.message || res.status };
     } catch (error) {
         console.error("Error checking image generation status:", error);
         return { status: "error", msg: "Failed to check status" };
