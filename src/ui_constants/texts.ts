@@ -1,6 +1,7 @@
 export const SELECT_IMAGE = "Firstly, select the image" as const
 export const IMAGE_SELECTED = "The image is selected" as const 
-export const INSUFFICIENT_CREDITS = "Insufficient credits" as const 
+export const INSUFFICIENT_CREDITS = "Insufficient credits" as const
+export const OFFLINE_WARNING = "You seem to be offline. Please check your connection." as const
 
 // Tabs
 export const REMOVE_BG_TAB = "Remove BG" as const 
