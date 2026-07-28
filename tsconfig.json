@@ -16,8 +16,8 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "react",
-    "types": ["@figma/plugin-typings"],
-    "typeRoots": ["node_modules/@types", "src/types"],
+    "types": ["plugin-typings"],
+    "typeRoots": ["node_modules/@types", "node_modules/@figma", "src/types"],
     "baseUrl": "./",
     "paths": {
       "@assets/*": ["assets/*"],
