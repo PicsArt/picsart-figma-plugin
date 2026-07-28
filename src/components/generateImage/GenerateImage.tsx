@@ -13,10 +13,16 @@ import {
   DEFAULT_ASPECT_RATIO,
   DEFAULT_NEGATIVE_PROMPT,
   DEFAULT_IMAGE_COUNT,
+  IMAGE_COUNT_OPTIONS,
+  TEXT2IMAGE_MODEL_OPTIONS,
+  DEFAULT_TEXT2IMAGE_MODEL,
+  WIDGET_HEIGHT_GENERATE_IMAGE,
+  WIDGET_HEIGHT_GENERATE_IMAGE_ADVANCED,
   getNextPromptExample,
   TYPE_SET_BALANCE,
 } from "@constants/index";
 import { Button, LoadingSpinner } from "@components/index";
+import usePluginHeight from "@hooks/usePluginHeight";
 import { BtnType } from "../../types/enums";
 import "./styles.scss";
 
@@ -38,9 +44,18 @@ const GenerateImage: React.FC<GenerateImageProps> = ({
   const [showAdvancedOptions, setShowAdvancedOptions] = useState<boolean>(false);
   const [aspectRatio, setAspectRatio] = useState<string>(DEFAULT_ASPECT_RATIO);
   const [style, setStyle] = useState<string>(DEFAULT_STYLE);
+  const [count, setCount] = useState<number>(DEFAULT_IMAGE_COUNT);
+  const [model, setModel] = useState<string>(DEFAULT_TEXT2IMAGE_MODEL);
   const [currentPromptIndex, setCurrentPromptIndex] = useState<number>(-1);
   const [showInfoTooltip, setShowInfoTooltip] = useState<boolean>(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // The expanded prompt hides the advanced panel, so it needs no extra room.
+  usePluginHeight(
+    showAdvancedSettings && !isFullscreen
+      ? WIDGET_HEIGHT_GENERATE_IMAGE_ADVANCED
+      : WIDGET_HEIGHT_GENERATE_IMAGE
+  );
 
   // Handle delayed appearance of advanced options
   useEffect(() => {
@@ -123,12 +138,13 @@ const GenerateImage: React.FC<GenerateImageProps> = ({
         }
       }
       
-      const response = await generateImage(finalPrompt, gottenKey, { 
+      const response = await generateImage(finalPrompt, gottenKey, {
         width: dimensions.width,
         height: dimensions.height,
         style,
         negative_prompt: DEFAULT_NEGATIVE_PROMPT,
-        count: DEFAULT_IMAGE_COUNT
+        count,
+        model,
       });
       
       if (response.success && response.inferenceId) {
@@ -362,19 +378,51 @@ const GenerateImage: React.FC<GenerateImageProps> = ({
                     ))}
                   </select>
                 </div>
+
+                <div className="option-group">
+                  <label className="option-label">Model</label>
+                  <select
+                    className="option-select"
+                    value={model}
+                    onChange={(e) => setModel(e.target.value)}
+                    tabIndex={18}
+                  >
+                    {TEXT2IMAGE_MODEL_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="option-group">
+                  <label className="option-label">Number of images</label>
+                  <select
+                    className="option-select"
+                    value={count}
+                    onChange={(e) => setCount(Number(e.target.value))}
+                    tabIndex={19}
+                  >
+                    {IMAGE_COUNT_OPTIONS.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             )}
           </div>
 
-          <Button type={btnType} cb={cb} tabIndex={18} />
-          
+          <Button type={btnType} cb={cb} tabIndex={20} />
+
           {loading && <LoadingSpinner />}
         </>
       )}
 
       {isFullscreen && (
         <div style={{ paddingTop: '12px' }}>
-          <Button type={btnType} cb={cb} tabIndex={18} />
+          <Button type={btnType} cb={cb} tabIndex={20} />
           {loading && <LoadingSpinner />}
         </div>
       )}

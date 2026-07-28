@@ -2,6 +2,8 @@ export * from './commands';
 export * from './env';
 export * from './errorMessages';
 export * from './generateImageOptions';
+export * from './removeBgOptions';
+export * from './upscaleOptions';
 export * from './messages';
 export * from './promptExamples';
 export * from './routes';

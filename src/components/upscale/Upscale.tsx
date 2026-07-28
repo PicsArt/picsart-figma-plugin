@@ -8,8 +8,13 @@ import {
   TYPE_NOTIFY,
   TYPE_SET_BALANCE,
   UPSCALE_FAILED_ERR,
+  UPSCALE_FORMAT_OPTIONS,
+  DEFAULT_UPSCALE_FORMAT,
+  WIDGET_HEIGHT_UPSCALE_WITH_KEY,
+  WIDGET_HEIGHT_UPSCALE_ADVANCED,
 } from "@constants/index";
 import { Button, LoadingSpinner } from "@components/index";
+import usePluginHeight from "@hooks/usePluginHeight";
 import { BtnType } from "../../types/enums";
 import "./styles.scss";
 
@@ -32,6 +37,12 @@ const Upscale: React.FC<UpscaleProps> = ({
   const [loading, setLoading] = useState<boolean>(false);
 
   const [scaleFactor, setScaleFactor] = useState(2);
+  const [showAdvancedSettings, setShowAdvancedSettings] = useState<boolean>(false);
+  const [format, setFormat] = useState<string>(DEFAULT_UPSCALE_FORMAT);
+
+  usePluginHeight(
+    showAdvancedSettings ? WIDGET_HEIGHT_UPSCALE_ADVANCED : WIDGET_HEIGHT_UPSCALE_WITH_KEY
+  );
 
   const handleSubmit = async () => {
     if (
@@ -47,7 +58,7 @@ const Upscale: React.FC<UpscaleProps> = ({
     if (!scaleFactor) return;
     sendMessageToSandBox(true, PROCESSING_IMAGE, TYPE_NOTIFY);
 
-    const response = await enhanceImage(imageBytes, gottenKey, scaleFactor);
+    const response = await enhanceImage(imageBytes, gottenKey, scaleFactor, format);
     if (!response.success) {
       sendMessageToSandBox(false, UPSCALE_FAILED_ERR, TYPE_NOTIFY);
       setLoading(false);
@@ -100,7 +111,47 @@ const Upscale: React.FC<UpscaleProps> = ({
         <span className="header-text">Choose enhance factor</span>
         <Selector onChange={handleOnChange} options={options} text="2" tabIndex={8} />
       </div>
-      <Button type={btnTpe} cb={cb} tabIndex={9} />
+      <div className="advanced-settings">
+        <label
+          className="settings-toggle"
+          tabIndex={9}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setShowAdvancedSettings(!showAdvancedSettings);
+            }
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={showAdvancedSettings}
+            onChange={(e) => setShowAdvancedSettings(e.target.checked)}
+            tabIndex={-1}
+          />
+          <span className="toggle-switch"></span>
+          <span className="toggle-label">Advanced settings</span>
+        </label>
+
+        <div className={`advanced-options ${showAdvancedSettings ? "visible" : ""}`}>
+          <div className="option-group">
+            <label className="option-label">Format</label>
+            <select
+              className="option-select"
+              value={format}
+              onChange={(e) => setFormat(e.target.value)}
+              tabIndex={showAdvancedSettings ? 10 : -1}
+            >
+              {UPSCALE_FORMAT_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <Button type={btnTpe} cb={cb} tabIndex={11} />
       <p className="upscale-text">
         Enhance Factor adjusts the level of improvement, such as image quality
         and resolution

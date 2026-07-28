@@ -5,6 +5,8 @@ import {
   TYPE_TAB,
   TAB_UPSCALE,
   TYPE_GET_BALANCE,
+  WIDGET_HEIGHT_UPSCALE_WITH_KEY,
+  WIDGET_HEIGHT_UPSCALE_WITHOUT_KEY,
 } from "@constants/index";
 import CustomSessionStorage from "@services/CustomSessionStorage";
 import { sendImageSelectionStatus } from "@services/ImageProcessor";
@@ -16,7 +18,9 @@ const EnhanceController = async () => {
   figma.showUI(__html__, {
     visible: true,
     themeColors: true,
-    height: apiKey ? 340 : 480,
+    // The Upscale tab restores this height when its advanced panel closes, so
+    // the two must stay in step — hence the shared constants.
+    height: apiKey ? WIDGET_HEIGHT_UPSCALE_WITH_KEY : WIDGET_HEIGHT_UPSCALE_WITHOUT_KEY,
   });
 
   setTimeout(async () => {

@@ -24,16 +24,24 @@ body {
 
 .main-content {
   flex: 1;
+  /* A flex item defaults to min-height:auto, so without this the content below
+     refuses to shrink and pushes the balance banner past #root's clipped edge
+     instead of scrolling. */
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  height: 105%;
 }
 
 .scrollable-content {
   flex: 1;
+  min-height: 0; /* see .main-content — both links in the chain must yield */
   display: flex;
   flex-direction: column;
-  overflow: hidden; /* No scrolling - everything should fit */
+  /* Everything is meant to fit — tabs grow the window when they reveal an
+     advanced-settings panel — but Figma clamps the window to the available
+     screen height, so scroll rather than cut controls off on short screens. */
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .bottom-banner {

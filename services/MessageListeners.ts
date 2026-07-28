@@ -27,6 +27,8 @@ import {
   WIDGET_HEIGHT_UPSCALE_WITHOUT_KEY,
   TYPE_SET_BALANCE,
   TYPE_GET_BALANCE,
+  TYPE_RESIZE,
+  WIDGET_WIDTH,
 } from "@constants/index";
 import { getBalance } from "@api/index";
 
@@ -92,6 +94,21 @@ export const setMessageListeners = (figma : PluginAPI) => {
     // report was dropped in silence.
     if (response.type === TYPE_NOTIFY) {
       figma.notify(response.msg, { error: !response.success });
+      return;
+    }
+
+    // Only the sandbox can change the window size, so the UI asks for one when
+    // an advanced-settings panel opens or closes. Resizing a hidden UI throws,
+    // hence the guard.
+    if (response.type === TYPE_RESIZE) {
+      const height = Number(response.height);
+      if (Number.isFinite(height) && height > 0) {
+        try {
+          figma.ui.resize(WIDGET_WIDTH, Math.round(height));
+        } catch (error) {
+          console.error("Failed to resize plugin window:", error);
+        }
+      }
       return;
     }
 

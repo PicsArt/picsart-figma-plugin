@@ -15,6 +15,7 @@ export const TYPE_GENERATED_IMAGES = "generated-images" as const;
 export const TYPE_SWITCH_TAB = "switch-tab" as const;
 export const TYPE_SET_BALANCE = "set-balance" as const;
 export const TYPE_GET_BALANCE = "get-balance" as const;
+export const TYPE_RESIZE = "resize" as const;
 
 const TYPES = {
   TYPE_IMAGEBYTES,
@@ -33,6 +34,7 @@ const TYPES = {
   TYPE_SWITCH_TAB,
   TYPE_SET_BALANCE,
   TYPE_GET_BALANCE,
+  TYPE_RESIZE,
 };
 
 export default TYPES;
