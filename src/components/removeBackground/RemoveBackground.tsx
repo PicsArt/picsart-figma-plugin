@@ -42,7 +42,10 @@ const RemoveBackground: React.FC<RemoveBackgroundProps> = ({
     const response = await removeBackgroundApi(imageBytes, gottenKey);
     setImageBytes(response.msg as Uint8Array);
     sendMessageToSandBox(response.success, response.msg, TYPE_IMAGEBYTES);
-    sendMessageToSandBox(true, String(response.updatedCredits), TYPE_SET_BALANCE); 
+    // A failed call carries no credit header, so there is no balance to report.
+    if (response.success && response.updatedCredits != null) {
+      sendMessageToSandBox(true, String(response.updatedCredits), TYPE_SET_BALANCE);
+    }
     setLoading(false);
   };
 

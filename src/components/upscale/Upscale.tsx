@@ -52,7 +52,10 @@ const Upscale: React.FC<UpscaleProps> = ({
       scaleFactor
     );
     setLoading(false);
-    sendMessageToSandBox(true, String(response.updatedCredits), TYPE_SET_BALANCE);
+    // A failed call carries no credit header, so there is no balance to report.
+    if (response.success && response.updatedCredits != null) {
+      sendMessageToSandBox(true, String(response.updatedCredits), TYPE_SET_BALANCE);
+    }
   };
 
   const handleOnChange = (val: string) => {
