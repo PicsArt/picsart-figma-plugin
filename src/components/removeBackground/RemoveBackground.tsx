@@ -3,6 +3,7 @@ import { removeBackgroundApi, sendMessageToSandBox } from "@api/index";
 import {
   PRICING,
   PROCESSING_IMAGE,
+  REMOVE_BG_FAILED_ERR,
   TYPE_IMAGEBYTES,
   TYPE_NOTIFY,
   TYPE_SET_BALANCE,
@@ -19,6 +20,7 @@ interface RemoveBackgroundProps {
   imageBytes: Uint8Array;
   setImageBytes: (bytes: Uint8Array) => void;
   isCreditsInsufficient: boolean;
+  isOffline: boolean;
 }
 
 const RemoveBackground: React.FC<RemoveBackgroundProps> = ({
@@ -26,6 +28,7 @@ const RemoveBackground: React.FC<RemoveBackgroundProps> = ({
   imageBytes,
   setImageBytes,
   isCreditsInsufficient,
+  isOffline,
 }) => {
   const [loading, setLoading] = useState<boolean>(false);
   const processImage = async () => {
@@ -33,17 +36,24 @@ const RemoveBackground: React.FC<RemoveBackgroundProps> = ({
       !imageBytes ||
       !gottenKey ||
       !imageBytes.length ||
-      isCreditsInsufficient
+      isCreditsInsufficient ||
+      isOffline
     )
       return;
     setLoading(true);
     sendMessageToSandBox(true, PROCESSING_IMAGE, TYPE_NOTIFY);
 
     const response = await removeBackgroundApi(imageBytes, gottenKey);
+    if (!response.success) {
+      sendMessageToSandBox(false, REMOVE_BG_FAILED_ERR, TYPE_NOTIFY);
+      setLoading(false);
+      return;
+    }
+
     setImageBytes(response.msg as Uint8Array);
     sendMessageToSandBox(response.success, response.msg, TYPE_IMAGEBYTES);
     // A failed call carries no credit header, so there is no balance to report.
-    if (response.success && response.updatedCredits != null) {
+    if (response.updatedCredits != null) {
       sendMessageToSandBox(true, String(response.updatedCredits), TYPE_SET_BALANCE);
     }
     setLoading(false);
@@ -51,7 +61,10 @@ const RemoveBackground: React.FC<RemoveBackgroundProps> = ({
 
   let btnTpe = null;
   let cb = () => {};
-  if (imageBytes && imageBytes.length && gottenKey && !isCreditsInsufficient) {
+  if (isOffline) {
+    // The offline banner explains why; leave cb as the no-op.
+    btnTpe = BtnType.REMOVE_BG_DISABLED;
+  } else if (imageBytes && imageBytes.length && gottenKey && !isCreditsInsufficient) {
     btnTpe = BtnType.REMOVE_BG_ACTIVE;
     cb = processImage;
   } else if (

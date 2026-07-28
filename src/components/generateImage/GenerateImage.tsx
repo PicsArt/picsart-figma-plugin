@@ -23,11 +23,13 @@ import "./styles.scss";
 interface GenerateImageProps {
   gottenKey: string;
   isCreditsInsufficient: boolean;
+  isOffline: boolean;
 }
 
 const GenerateImage: React.FC<GenerateImageProps> = ({
   gottenKey,
   isCreditsInsufficient,
+  isOffline,
 }) => {
   const [loading, setLoading] = useState<boolean>(false);
   const [prompt, setPrompt] = useState<string>("");
@@ -104,7 +106,9 @@ const GenerateImage: React.FC<GenerateImageProps> = ({
   };
 
   const handleSubmit = async () => {
-    if (!gottenKey || isCreditsInsufficient || !prompt.trim()) return;
+    // Also guards the Enter-key path in handleKeyDown, which calls this
+    // directly rather than going through the button.
+    if (!gottenKey || isCreditsInsufficient || isOffline || !prompt.trim()) return;
     setLoading(true);
 
     sendMessageToSandBox(true, GENERATING_IMAGE, TYPE_NOTIFY);
@@ -203,7 +207,10 @@ const GenerateImage: React.FC<GenerateImageProps> = ({
 
   let btnType = null;
   let cb = () => {};
-  if (gottenKey && !isCreditsInsufficient && prompt.trim()) {
+  if (isOffline) {
+    // The offline banner explains why; leave cb as the no-op.
+    btnType = BtnType.GENERATE_IMAGE_DISABLED;
+  } else if (gottenKey && !isCreditsInsufficient && prompt.trim()) {
     btnType = BtnType.GENERATE_IMAGE_ACTIVE;
     cb = handleSubmit;
   } else if (gottenKey && isCreditsInsufficient) {

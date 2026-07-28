@@ -7,6 +7,7 @@ import {
   TYPE_IMAGEBYTES,
   TYPE_NOTIFY,
   TYPE_SET_BALANCE,
+  UPSCALE_FAILED_ERR,
 } from "@constants/index";
 import { Button, LoadingSpinner } from "@components/index";
 import { BtnType } from "../../types/enums";
@@ -17,6 +18,7 @@ interface UpscaleProps {
   imageBytes: Uint8Array;
   setImageBytes: (bytes: Uint8Array) => void;
   isCreditsInsufficient: boolean;
+  isOffline: boolean;
 }
 const options = ["2", "4", "6", "8"];
 
@@ -25,6 +27,7 @@ const Upscale: React.FC<UpscaleProps> = ({
   imageBytes,
   setImageBytes,
   isCreditsInsufficient,
+  isOffline,
 }) => {
   const [loading, setLoading] = useState<boolean>(false);
 
@@ -35,7 +38,8 @@ const Upscale: React.FC<UpscaleProps> = ({
       !imageBytes ||
       !gottenKey ||
       !imageBytes.length ||
-      isCreditsInsufficient
+      isCreditsInsufficient ||
+      isOffline
     )
       return;
     setLoading(true);
@@ -44,6 +48,12 @@ const Upscale: React.FC<UpscaleProps> = ({
     sendMessageToSandBox(true, PROCESSING_IMAGE, TYPE_NOTIFY);
 
     const response = await enhanceImage(imageBytes, gottenKey, scaleFactor);
+    if (!response.success) {
+      sendMessageToSandBox(false, UPSCALE_FAILED_ERR, TYPE_NOTIFY);
+      setLoading(false);
+      return;
+    }
+
     setImageBytes(response.msg as Uint8Array);
     sendMessageToSandBox(
       response.success,
@@ -53,7 +63,7 @@ const Upscale: React.FC<UpscaleProps> = ({
     );
     setLoading(false);
     // A failed call carries no credit header, so there is no balance to report.
-    if (response.success && response.updatedCredits != null) {
+    if (response.updatedCredits != null) {
       sendMessageToSandBox(true, String(response.updatedCredits), TYPE_SET_BALANCE);
     }
   };
@@ -64,7 +74,10 @@ const Upscale: React.FC<UpscaleProps> = ({
 
   let btnTpe = null;
   let cb = () => {};
-  if (imageBytes && imageBytes.length && gottenKey && !isCreditsInsufficient) {
+  if (isOffline) {
+    // The offline banner explains why; leave cb as the no-op.
+    btnTpe = BtnType.UPSCALE_DISABLED;
+  } else if (imageBytes && imageBytes.length && gottenKey && !isCreditsInsufficient) {
     btnTpe = BtnType.UPSCALE_ACTIVE;
     cb = handleSubmit;
   } else if (

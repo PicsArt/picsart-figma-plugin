@@ -2,6 +2,7 @@ import React, { useEffect } from "react";
 import { removeBackgroundApi, sendMessageToSandBox } from "@api/index";
 import {
   PROCESSING_IMAGE,
+  REMOVE_BG_FAILED_ERR,
   TYPE_CLOSE_PLUGIN,
   TYPE_IMAGEBYTES,
   TYPE_NOTIFY,
@@ -21,8 +22,14 @@ const RemoveBackgroundHidden: React.FC<RemoveBackgroundProps> = ({
       if (!imageBytes || !gottenKey || !imageBytes.length) return;
       sendMessageToSandBox(true, PROCESSING_IMAGE, TYPE_NOTIFY);
       const response = await removeBackgroundApi(imageBytes, gottenKey);
-      sendMessageToSandBox(response.success, response.msg, TYPE_IMAGEBYTES);
-      sendMessageToSandBox(response.success, "", TYPE_CLOSE_PLUGIN);
+      if (!response.success) {
+        sendMessageToSandBox(false, REMOVE_BG_FAILED_ERR, TYPE_NOTIFY);
+      } else {
+        sendMessageToSandBox(response.success, response.msg, TYPE_IMAGEBYTES);
+      }
+      // This flow has no visible UI, so it must close either way or the plugin
+      // hangs with an invisible iframe.
+      sendMessageToSandBox(true, "", TYPE_CLOSE_PLUGIN);
     };
 
     processImage();

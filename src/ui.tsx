@@ -66,6 +66,7 @@ const App = () => {
             gottenKey={apiKey}
             imageBytes={imageBytes}
             isCreditsInsufficient={isCreditsInsufficient}
+            isOffline={isOffline}
           />
         );
         break;
@@ -76,6 +77,7 @@ const App = () => {
             gottenKey={apiKey}
             imageBytes={imageBytes}
             isCreditsInsufficient={isCreditsInsufficient}
+            isOffline={isOffline}
           />
         );
         break;
@@ -83,6 +85,7 @@ const App = () => {
         setPage(<GenerateImage
             gottenKey={apiKey}
             isCreditsInsufficient={isCreditsInsufficient}
+            isOffline={isOffline}
           />);
         break;
       case TabType.ACCOUNT:
@@ -149,7 +152,7 @@ const App = () => {
 
   useEffect(() => {
     setPageLogic();
-  }, [tab, action, apiKey, imageBytes, isCreditsInsufficient, balance]);
+  }, [tab, action, apiKey, imageBytes, isCreditsInsufficient, balance, isOffline]);
 
   return (
     <div className="main-content">
