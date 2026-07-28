@@ -1,5 +1,3 @@
-/* eslint-disable react-hooks/rules-of-hooks */
-/* eslint-disable react-hooks/exhaustive-deps */
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { BalanceProvider, useBalance } from "./context/BalanceContext";
@@ -42,7 +40,7 @@ const App = () => {
 
   /// !!!IMPORTANT
   if (navigator.onLine === false) {
-    // eslint-disable-next-line no-restricted-globals
+     
     parent.postMessage({ pluginMessage: "NO_INTERNET_ERR" }, "*");
     return <></>;
   }
@@ -142,7 +140,7 @@ const App = () => {
       } else if (type === TYPE_GET_BALANCE) {
         setIsActive(() => true);
         setBalance(payload);
-        payload <= 0 ? setIsCreditsInsufficient(true) : setIsCreditsInsufficient(false);
+        setIsCreditsInsufficient(payload <= 0);
       }
     };
 

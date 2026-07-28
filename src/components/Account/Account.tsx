@@ -18,7 +18,7 @@ const Account: React.FC<AccountProps> = ({ setIsCreditsInsufficient, gottenKey, 
 
   useEffect(() => {
     sendMessageToSandBox(true, "", TYPE_GET_BALANCE);
-    balance <= 0 ? setIsCreditsInsufficient(true) : setIsCreditsInsufficient(false);
+    setIsCreditsInsufficient(balance <= 0);
   }, [ gottenKey ]);
 
   return (
