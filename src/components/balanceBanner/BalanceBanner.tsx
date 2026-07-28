@@ -22,8 +22,7 @@ const BalanceBanner: React.FC<Props> = ({
 
   useEffect(() => {
     sendMessageToSandBox(true, "", TYPE_GET_BALANCE);
-    balance <= 0 ? setIsCreditsInsufficient(true) : setIsCreditsInsufficient(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setIsCreditsInsufficient(balance <= 0);
   }, [ gottenKey ]);
 
   return (

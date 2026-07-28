@@ -27,7 +27,7 @@ const processImage = async (
   }
   const selectedNode = selectedNodes[0];
 
-  let types = ["RECTANGLE", "ELLIPSE", "POLYGON", "STAR", "VECTOR", "TEXT"];
+  const types = ["RECTANGLE", "ELLIPSE", "POLYGON", "STAR", "VECTOR", "TEXT"];
   if (types.indexOf(selectedNode.type) > -1) {
     if ("fills" in selectedNode) {
       const fills = selectedNode.fills as ReadonlyArray<Paint>;

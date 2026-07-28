@@ -93,7 +93,7 @@ const GenerateImage: React.FC<GenerateImageProps> = ({
             setTimeout(poll, 2000);
           }
         }
-      } catch (error) {
+      } catch (_error) {
         isPolling = false;
         sendMessageToSandBox(false, "Error checking image generation status", TYPE_NOTIFY);
         setLoading(false);
@@ -135,7 +135,7 @@ const GenerateImage: React.FC<GenerateImageProps> = ({
         sendMessageToSandBox(false, response.msg, TYPE_NOTIFY);
         setLoading(false);
       }
-    } catch (error) {
+    } catch (_error) {
       sendMessageToSandBox(false, "Failed to start image generation", TYPE_NOTIFY);
       setLoading(false);
     }

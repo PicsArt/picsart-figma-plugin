@@ -16,6 +16,25 @@
 .env.test.local
 .env.production.local
 
+# IDEs
+/.idea
+.vscode/
+.history/
+*.code-workspace
+*.vsix
+
+# LLMs
+AGENTS.md
+GEMINI.md
+CLAUDE.md
+.mcp.json
+.agents/
+.claude/
+.junie/
+.cursor/
+.cursorrules
+.cursorignore
+
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

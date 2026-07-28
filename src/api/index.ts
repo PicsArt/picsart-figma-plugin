@@ -44,8 +44,8 @@ export const extractCreditsFromResponse = (response: Response): number | null =>
     return null;
 };
 
-export const sendMessageToSandBox = (success: boolean, msg: string | Uint8Array, type? : string, scaleFactor? : number, additionalData?: any) => {
-    // eslint-disable-next-line no-restricted-globals
+export const sendMessageToSandBox = (success: boolean, msg: string | Uint8Array, type? : string, scaleFactor? : number, additionalData?: Record<string, unknown>) => {
+     
     parent.postMessage({ pluginMessage: {
       success,
       msg,
@@ -57,7 +57,7 @@ export const sendMessageToSandBox = (success: boolean, msg: string | Uint8Array,
 
 export const getBalance = async (key: string) : Promise<GetBalanceReturnType> => {
     try {
-        let response = await customFetch(PICSARTURL + BALANACE, { headers: { [HEADERAPI] : key }});
+        const response = await customFetch(PICSARTURL + BALANACE, { headers: { [HEADERAPI] : key }});
         const res : BalanceResponse = await response.json();
 
         if (res.message !== TOKEN_ERR) {
@@ -118,6 +118,7 @@ export const generateImage = async (prompt: string, key: string, options: Genera
             return { success: false, msg: res.detail || res.message || "Unknown error occurred" };
         }
     } catch (error) {
+        console.error("Error generating image:", error);
         return { success: false, msg: "Network error occurred" };
     }
 };
@@ -151,6 +152,7 @@ export const checkGenerateImageStatus = async (inferenceId: string, key: string)
         
         return { status: res.status, msg: res.status };
     } catch (error) {
+        console.error("Error checking image generation status:", error);
         return { status: "error", msg: "Failed to check status" };
     }
 };

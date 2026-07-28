@@ -13,14 +13,21 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-scripts": "5.0.1",
-    "typescript": "^4.9.5",
+    "typescript": "^5.9.3",
     "web-vitals": "^2.1.4"
   },
   "scripts": {
     "build": "webpack",
     "build:prod": "webpack --mode production",
     "watch": "webpack --watch",
-    "start": "webpack serve"
+    "start": "webpack serve",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
+  },
+  "overrides": {
+    "react-scripts": {
+      "typescript": "$typescript"
+    }
   },
   "eslintConfig": {
     "extends": [
@@ -41,12 +48,16 @@
     ]
   },
   "devDependencies": {
-    "@figma/plugin-typings": "^1.100.2",
+    "@eslint/js": "^9.39.4",
+    "@figma/eslint-plugin-figma-plugins": "*",
+    "@figma/plugin-typings": "^1.131.0",
     "copy-webpack-plugin": "^12.0.2",
+    "eslint": "^9.39.4",
     "html-webpack-plugin": "^5.6.0",
     "sass": "^1.63.0",
     "sass-loader": "^13.0.0",
     "ts-loader": "^9.5.1",
+    "typescript-eslint": "^8.57.1",
     "webpack": "^5.95.0",
     "webpack-cli": "^5.1.4"
   }

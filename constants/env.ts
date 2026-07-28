@@ -7,7 +7,6 @@ export const WIDGET_HEIGHT_GENERATE_IMAGE = 575;
 export const WIDGET_HEIGHT_UPSCALE_WITH_KEY = 340;
 export const WIDGET_HEIGHT_UPSCALE_WITHOUT_KEY = 480;
 
-// eslint-disable-next-line import/no-anonymous-default-export
 export default {
     API_KEY_NAME,
     WIDGET_WIDTH,

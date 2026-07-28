@@ -1,4 +1,4 @@
-export const PICSARTURL = "https://api.picsart.io/tools/1.0/" as const;
+export const PICSARTURL = "https://api.picsart.io/v1/" as const;
 export const GENAIURL = "https://genai-api.picsart.io/v1/" as const;
 export const REMOVEBG = "figma/removebg" as const;
 export const GENERATEIMAGE = "figma/text2image" as const;

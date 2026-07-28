@@ -9,7 +9,7 @@ export const customFetch = async (url : string, options? : FetchProps) : Promise
         [HEADER_PLUGIN_NAME_KEY]: HEADER_PLUGIN_NAME_VALUE,
     };
     
-    let updatedOptions: FetchProps = {
+    const updatedOptions: FetchProps = {
         ...(options || {}), 
         headers: { ...(options?.headers || {}), ...defaultHeaders },
     };
