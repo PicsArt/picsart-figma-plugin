@@ -13,7 +13,9 @@ import {
   Support,
   Upscale,
   GenerateImage,
+  OfflineBanner,
 } from "@components/index";
+import useOffline from "@hooks/useOffline";
 import { TabType } from "./types/enums";
 import {
   TYPE_ACCOUNT,
@@ -37,13 +39,7 @@ const App = () => {
   const [imageBytes, setImageBytes] = useState<Uint8Array>(new Uint8Array());
   const [isCreditsInsufficient, setIsCreditsInsufficient] =
     useState<boolean>(false);
-
-  /// !!!IMPORTANT
-  if (navigator.onLine === false) {
-     
-    parent.postMessage({ pluginMessage: "NO_INTERNET_ERR" }, "*");
-    return <></>;
-  }
+  const isOffline = useOffline();
 
   const handleTabChange = (selectedTab: TabType) => {
     if (selectedTab === TabType.ACCOUNT) {
@@ -70,6 +66,7 @@ const App = () => {
             gottenKey={apiKey}
             imageBytes={imageBytes}
             isCreditsInsufficient={isCreditsInsufficient}
+            isOffline={isOffline}
           />
         );
         break;
@@ -80,6 +77,7 @@ const App = () => {
             gottenKey={apiKey}
             imageBytes={imageBytes}
             isCreditsInsufficient={isCreditsInsufficient}
+            isOffline={isOffline}
           />
         );
         break;
@@ -87,6 +85,7 @@ const App = () => {
         setPage(<GenerateImage
             gottenKey={apiKey}
             isCreditsInsufficient={isCreditsInsufficient}
+            isOffline={isOffline}
           />);
         break;
       case TabType.ACCOUNT:
@@ -153,8 +152,8 @@ const App = () => {
 
   useEffect(() => {
     setPageLogic();
-  }, [tab, action, apiKey, imageBytes, isCreditsInsufficient, balance]);
-  
+  }, [tab, action, apiKey, imageBytes, isCreditsInsufficient, balance, isOffline]);
+
   return (
     <div className="main-content">
       <div className="scrollable-content">
@@ -162,6 +161,11 @@ const App = () => {
         {apiKey && page}
         {!apiKey && <IntroPage />}
       </div>
+      {isOffline && (
+        <div className="bottom-banner">
+          <OfflineBanner />
+        </div>
+      )}
       {apiKey && (
         <div className="bottom-banner">
           {(tab === TabType.REMOVE_BACKGROUND || tab === TabType.UPSCALE || tab === TabType.TEXT_TO_IMAGE) && (

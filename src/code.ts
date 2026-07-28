@@ -1,17 +1,10 @@
 /// <reference types="@figma/plugin-typings" />
-import {
-  NO_INTERNET_ERR,
-  NO_INTERNET_ERR_MSG,
-  API_KEY_NAME,
-} from "@constants/index";
+import { API_KEY_NAME } from "@constants/index";
 import IntroController from "@controllers/IntroController";
 import routeCommand from "@routes/CommandRouter";
 import { sendImageSelectionStatus } from "@services/ImageProcessor";
 
 figma.showUI(__html__, { visible: false });
-figma.ui.onmessage = (response) => {
-  if (response === NO_INTERNET_ERR) figma.closePlugin(NO_INTERNET_ERR_MSG);
-};
 
 // Need to take time while UI is drawing that you can postmessage with it 
 setTimeout(async () => {

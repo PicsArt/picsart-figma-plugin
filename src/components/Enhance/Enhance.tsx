@@ -19,7 +19,10 @@ const Enhance: React.FC<UpscaleProps> = ({ gottenKey, imageBytes }) => {
 
         const response = await enhanceImage(imageBytes, gottenKey, scaleFactor);
         sendMessageToSandBox(response.success, response.msg, TYPE_IMAGEBYTES, scaleFactor);
-        sendMessageToSandBox(true, String(response.updatedCredits), TYPE_SET_BALANCE);
+        // A failed call carries no credit header, so there is no balance to report.
+        if (response.success && response.updatedCredits != null) {
+            sendMessageToSandBox(true, String(response.updatedCredits), TYPE_SET_BALANCE);
+        }
     }
 
     const handleOnChange = (val : string) => {

@@ -1,0 +1,57 @@
+@use "@styles/colors" as *;
+
+.figma-light {
+
+    .offlinebanner-container {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        width: 100%;
+        gap: 8px;
+        padding: 4px 0;
+        box-sizing: border-box;
+
+        .danger-icon {
+            width: 20px;
+            height: 18px;
+            // The message wraps at 320px, so the triangle must not be squashed.
+            flex-shrink: 0;
+        }
+
+        .text {
+            color: $light-color-option-active;
+            font-family: "Inter";
+            font-weight: 500;
+            font-size: 13px;
+            letter-spacing: 0.16px;
+        }
+    }
+}
+
+
+.figma-dark {
+
+    .offlinebanner-container {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        width: 100%;
+        gap: 8px;
+        padding: 4px 0;
+        box-sizing: border-box;
+
+        .danger-icon {
+            width: 20px;
+            height: 18px;
+            flex-shrink: 0;
+        }
+
+        .text {
+            color: $dark-color-option-active;
+            font-family: "Inter";
+            font-weight: 500;
+            font-size: 13px;
+            letter-spacing: 0.16px;
+        }
+    }
+}

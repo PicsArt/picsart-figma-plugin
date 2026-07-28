@@ -87,9 +87,16 @@ const getTabUIValue = (tabConstant: string): string => {
 
 export const setMessageListeners = (figma : PluginAPI) => {
   figma.ui.onmessage = async (response) => {
+    // Notifications carry failures as well as progress, so they must be handled
+    // before the success gate below. Behind it, every error the UI tried to
+    // report was dropped in silence.
+    if (response.type === TYPE_NOTIFY) {
+      figma.notify(response.msg, { error: !response.success });
+      return;
+    }
+
     if (response.success) {
       if (response.type === TYPE_CLOSE_PLUGIN) figma.closePlugin();
-      if (response.type === TYPE_NOTIFY) figma.notify(response.msg);
       if (response.type === TYPE_IMAGEBYTES) {
         const res = await ImageProcessor.setFetchedImage(
           response.msg,
@@ -172,7 +179,15 @@ export const setMessageListeners = (figma : PluginAPI) => {
       }
       if (response.type === TYPE_SET_BALANCE) {
         const sessionStorage: CustomSessionStorage = CustomSessionStorage.getInstance();
-        sessionStorage.setBalance(response.msg);
+        // The balance crosses postMessage as a string, so a failed API call can
+        // arrive here as "undefined", "null" or an error message. Caching one of
+        // those poisons the balance for the rest of the plugin session, since
+        // nothing re-fetches it. Only accept a real number; otherwise echo the
+        // last known good value back so the UI corrects itself.
+        const credits = Number(response.msg);
+        if (response.msg !== "" && Number.isFinite(credits)) {
+          sessionStorage.setBalance(credits);
+        }
         figma.ui.postMessage({
           type: TYPE_GET_BALANCE,
           payload: sessionStorage.getBalance(),
