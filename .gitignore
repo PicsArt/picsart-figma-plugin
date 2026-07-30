@@ -3,6 +3,7 @@
 # dependencies
 /node_modules
 /dist
+picsart-figma-plugin-*.zip
 /.pnp
 .pnp.js
 
