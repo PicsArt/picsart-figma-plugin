@@ -1,11 +1,18 @@
 export enum TabType {
   TAB_REMOVE_BACKGROUND_INSTANTLY = "Remove Background Instantly",
   REMOVE_BACKGROUND = "Remove BG",
-  TEXT_TO_IMAGE = "Generate image",
+  GENERATE_IMAGE = "Generate Image",
   UPSCALE = "Upscale",
   ACCOUNT = "Account Balance",
   SUPPORT = "Support",
   SET_API_KEY = "Set API Key",
+}
+
+export enum BannerStance {
+  /** Nothing can proceed without a selection. */
+  BLOCKING = "blocking",
+  /** An empty selection is one of two valid modes; the banner reports, not warns. */
+  INFORMATIONAL = "informational",
 }
 
 export enum BtnType {
@@ -18,6 +25,9 @@ export enum BtnType {
   GENERATE_IMAGE_ACTIVE = "generate-image-active",
   GENERATE_IMAGE_NO_CREDITS = "generate-image-no-credits",
   GENERATE_IMAGE_DISABLED = "generate-image-disabled",
+  EDIT_IMAGE_ACTIVE = "generate-image-active edit-image-active",
+  EDIT_IMAGE_NO_CREDITS = "generate-image-no-credits edit-image-no-credits",
+  EDIT_IMAGE_DISABLED = "generate-image-disabled edit-image-disabled",
   CONTINUE = "continue",
   CHANGE_KEY = "change-key",
   BUY_MORE = "buy-more",

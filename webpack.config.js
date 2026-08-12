@@ -4,6 +4,58 @@ const HtmlWebpackPlugin = require("html-webpack-plugin");
 const path = require("path");
 const webpack = require("webpack");
 
+// Figma evaluates dist/code.js inside an SES realm, which refuses any source
+// that might contain a dynamic import. Its guard is a regex, not a parser:
+// the word `import` followed by whitespace and then `(`, `//` or `/*`. A prose
+// comment ending in the word "import" whose next line starts with `//` matches
+// it, and Figma then fails the plugin with
+//
+//   SyntaxError: possible import expression rejected around line 1
+//
+// before running a line of it. Production builds strip comments, so this only
+// bites the development bundle — the one `npm run watch` feeds to Figma — and
+// neither typecheck, lint nor test:run can see it. Hence a build-time check.
+const SES_IMPORT_EXPRESSION = /(?:^|[^.$\w])\bimport(?:\s*(?:\(|\/[/*]))/;
+
+class RejectImportExpressionPlugin {
+  // Only the sandbox bundle matters: the UI is a normal iframe, not a realm.
+  constructor(assetName) {
+    this.assetName = assetName;
+  }
+
+  apply(compiler) {
+    compiler.hooks.compilation.tap("RejectImportExpression", (compilation) => {
+      compilation.hooks.processAssets.tap(
+        {
+          name: "RejectImportExpression",
+          stage: compiler.webpack.Compilation.PROCESS_ASSETS_STAGE_REPORT,
+        },
+        (assets) => {
+          const asset = assets[this.assetName];
+          if (!asset) return;
+
+          const source = asset.source().toString();
+          const index = source.search(SES_IMPORT_EXPRESSION);
+          if (index === -1) return;
+
+          const line = source.slice(0, index).split("\n").length;
+          const excerpt = source.slice(index, index + 80).replace(/\n/g, "\\n");
+          compilation.errors.push(
+            new webpack.WebpackError(
+              `${this.assetName} line ${line} reads as a dynamic import to Figma's ` +
+                `SES realm, which will reject the whole plugin at load time:\n` +
+                `  ${excerpt}\n` +
+                `Reword it so \`import\` is not followed by whitespace and then ` +
+                `\`(\`, \`//\` or \`/*\` — a comment line ending in the word ` +
+                `"import" is the usual cause.`,
+            ),
+          );
+        },
+      );
+    });
+  }
+}
+
 module.exports = (__, argv) => ({
   mode: argv.mode === "production" ? "production" : "development",
   devtool: argv.mode === "production" ? false : "inline-source-map",
@@ -52,6 +104,10 @@ module.exports = (__, argv) => ({
           {
             loader: "sass-loader",
             options: {
+              // The legacy JS API is deprecated and goes away in Dart Sass 2.0.
+              // Every .scss import warned about it on every build until this was
+              // set, which is 14 of the build's warnings.
+              api: "modern-compiler",
               sourceMap: argv.mode !== "production",
             },
           },
@@ -73,7 +129,11 @@ module.exports = (__, argv) => ({
       "@components": path.resolve(__dirname, 'src/components/'),
       "@api": path.resolve(__dirname, 'src/api/'),
       "@ui": path.resolve(__dirname, 'src/components/ui/'),
-      "@types": path.resolve(__dirname, 'src/types/'),
+      // Renamed from "@types". That name shadows the DefinitelyTyped scope, so
+      // `@types/react` in a source file was ambiguous between the package and this
+      // directory — latent rather than live, but the alias had zero references and was
+      // free to rename before it bit.
+      "@app-types": path.resolve(__dirname, 'src/types/'),
     }
   },
   output: {
@@ -81,6 +141,17 @@ module.exports = (__, argv) => ({
     clean: true,
     path: path.join(__dirname, "dist"),
     publicPath: '/',
+  },
+  // webpack's 244 KiB default is a network-delivery budget, and nothing here is
+  // delivered over a network: InlineChunkHtmlPlugin inlines the UI chunk into
+  // ui.html and Figma loads that file from local disk. The check is kept rather
+  // than switched off because CLAUDE.md treats a build warning as a real finding,
+  // and that only holds while the build is otherwise warning-free — so the limit
+  // is set where a genuine blowup (a bundled font, an accidental dependency)
+  // still trips it.
+  performance: {
+    maxAssetSize: 400 * 1024,
+    maxEntrypointSize: 400 * 1024,
   },
   plugins: [
     new webpack.DefinePlugin({
@@ -93,6 +164,7 @@ module.exports = (__, argv) => ({
       chunks: ["ui"],
     }),
     new InlineChunkHtmlPlugin(HtmlWebpackPlugin, [/ui/]),
+    new RejectImportExpressionPlugin("code.js"),
   ],
 
 });

@@ -1,54 +1,41 @@
 import React, { useState } from "react";
 import useOutsideClick from "@hooks/useOutsideClick";
-import { REMOVE_BG_TAB, UPSCALE_TAB, TEXT_TO_IMAGE_TAB } from "@ui_constants/texts";
-import { TabType } from "./../../types/enums";
+import { TabType } from "@app-types/enums";
 import { HELP_CENTER } from "@constants/url";
 import "./styles.scss";
 import { sendMessageToSandBox } from "@api/index";
-import { 
-  TYPE_SWITCH_TAB,
-  TAB_REMOVE_BACKGROUND,
-  TAB_UPSCALE,
-  TAB_ACCOUNT,
-  TAB_SUPPORT,
-  TAB_GENERATE_IMAGE,
-  TAB_SET_API_KEY,
-} from "@constants/index";
+import { TYPE_SWITCH_TAB } from "@constants/index";
 
 interface Props {
   gottenKey: string;
   tab: TabType;
 }
 
+// Visual order, left to right. Generate Image leads: Figma now matches background
+// removal and upscaling natively, so the capability it does not match at Picsart's
+// model breadth is the one worth opening on.
+//
+// The label IS the enum value. There used to be three separate label constants in
+// ui_constants/texts.ts whose only job was to restate these strings, and one of
+// them had already drifted to a different capitalisation.
+const TABS: readonly { type: TabType; tabIndex: number }[] = [
+  { type: TabType.GENERATE_IMAGE, tabIndex: 1 },
+  { type: TabType.REMOVE_BACKGROUND, tabIndex: 2 },
+  { type: TabType.UPSCALE, tabIndex: 3 },
+];
+
 const Navbar: React.FC<Props> = ({ gottenKey, tab }) => {
   const [showMenu, setShowMenu] = useState<boolean>(false);
   const ref = useOutsideClick<HTMLDivElement>(() => setShowMenu(false));
 
-  const getTabConstant = (tabType: TabType): string => {
-    switch (tabType) {
-      case TabType.REMOVE_BACKGROUND:
-        return TAB_REMOVE_BACKGROUND;
-      case TabType.UPSCALE:
-        return TAB_UPSCALE;
-      case TabType.TEXT_TO_IMAGE:
-        return TAB_GENERATE_IMAGE;
-      case TabType.ACCOUNT:
-        return TAB_ACCOUNT;
-      case TabType.SUPPORT:
-        return TAB_SUPPORT;
-      case TabType.SET_API_KEY:
-        return TAB_SET_API_KEY;
-      default:
-        return TAB_REMOVE_BACKGROUND;
-    }
-  };
-
   const handleSelect = (option: TabType): void => {
     if (option === tab) return; // Don't switch if already on the same tab
-    
-    // Send switch tab message to close and reopen UI with proper height
-    const tabConstant = getTabConstant(option);
-    sendMessageToSandBox(true, "Switching tab", TYPE_SWITCH_TAB, undefined, { tab: tabConstant });
+
+    // The TAB_* constants are derived from TabType now, so the enum value IS the
+    // constant. The getTabConstant switch that used to sit here was a hand-written
+    // inverse of getTabUIValue in MessageListeners.ts, and keeping two mappers
+    // mutually consistent by hand is what let the casing drift go unnoticed.
+    sendMessageToSandBox(true, "Switching tab", TYPE_SWITCH_TAB, undefined, { tab: option });
   };
 
   const handleMenuClick = () => {
@@ -62,60 +49,33 @@ const Navbar: React.FC<Props> = ({ gottenKey, tab }) => {
 
   return (
     <div className="navbar-container">
-      <div className="options-container">
-        <span
-          className={`option ${
-            tab === TabType.REMOVE_BACKGROUND ? "selected" : ""
-          }`}
-          onClick={() => handleSelect(TabType.REMOVE_BACKGROUND)}
-          tabIndex={1}
-          role="button"
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              handleSelect(TabType.REMOVE_BACKGROUND);
-            }
-          }}
-        >
-          {REMOVE_BG_TAB}
-        </span>
-        <span
-          className={`option ${
-            tab === TabType.UPSCALE ? "selected" : ""
-          }`}
-          onClick={() => handleSelect(TabType.UPSCALE)}
-          tabIndex={2}
-          role="button"
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              handleSelect(TabType.UPSCALE);
-            }
-          }}
-        >
-          {UPSCALE_TAB}
-        </span>
-        <span
-          className={`option ${
-            tab === TabType.TEXT_TO_IMAGE ? "selected" : ""
-          }`}
-          onClick={() => handleSelect(TabType.TEXT_TO_IMAGE)}
-          tabIndex={3}
-          role="button"
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              handleSelect(TabType.TEXT_TO_IMAGE);
-            }
-          }}
-        >
-          {TEXT_TO_IMAGE_TAB}
-        </span>
+      {/* role="tablist" plus aria-selected, so a screen reader announces these as
+          tabs and says which one is current. Three <span role="button"> elements
+          reported nothing about being a set or about which was active. */}
+      <div className="options-container" role="tablist" aria-label="Picsart tools">
+        {TABS.map(({ type, tabIndex }) => (
+          <span
+            key={type}
+            className={`option ${tab === type ? "selected" : ""}`}
+            onClick={() => handleSelect(type)}
+            tabIndex={tabIndex}
+            role="tab"
+            aria-selected={tab === type}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                handleSelect(type);
+              }
+            }}
+          >
+            {type}
+          </span>
+        ))}
       </div>
       <div 
         className="hamburger-menu" 
         onClick={handleMenuClick}
-        tabIndex={4}
+        tabIndex={0}
         role="button"
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
@@ -141,7 +101,7 @@ const Navbar: React.FC<Props> = ({ gottenKey, tab }) => {
           <div ref={ref} className="hamburger-menu-hidden-content">
             <span 
               onClick={() => handleMenuItemClick(TabType.SET_API_KEY)}
-              tabIndex={5}
+              tabIndex={0}
               role="button"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
@@ -154,7 +114,7 @@ const Navbar: React.FC<Props> = ({ gottenKey, tab }) => {
             </span>
             <span 
               onClick={() => handleMenuItemClick(TabType.ACCOUNT)}
-              tabIndex={6}
+              tabIndex={0}
               role="button"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
@@ -167,7 +127,7 @@ const Navbar: React.FC<Props> = ({ gottenKey, tab }) => {
             </span>
             <span 
               onClick={() => window.open(HELP_CENTER, "_blank")}
-              tabIndex={7}
+              tabIndex={0}
               role="button"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {

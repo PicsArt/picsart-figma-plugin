@@ -24,6 +24,13 @@
   },
   "menu": [
     {
+      "name": "Generate Image",
+      "command": "GENERATE-IMAGE"
+    },
+    {
+      "separator": true
+    },
+    {
       "name": "Remove Background",
       "command": "REMOVE-BACKGROUND"
     },
@@ -33,13 +40,6 @@
     {
       "name": "Enhance / Upscale",
       "command": "UPSCALE"
-    },
-    {
-      "separator": true
-    },
-    {
-      "name": "Generate Image",
-      "command": "GENERATE-IMAGE"
     },
     {
       "separator": true

@@ -1,13 +1,19 @@
-import { TAB_SUPPORT, TYPE_TAB } from "@constants/index";
+import { TAB_SUPPORT } from "@constants/index";
 import { setMessageListeners } from "@services/MessageListeners";
+import openPanel from "./openPanel";
 
 const SupportController = async () => {
-  figma.showUI(__html__, { visible: false });
+  setMessageListeners(figma);
 
-  setTimeout(() => {
-    figma.ui.postMessage({ type: TYPE_TAB, payload: TAB_SUPPORT });
-    setMessageListeners(figma);
-  }, 400);
+  await openPanel({
+    tab: TAB_SUPPORT,
+    // Hidden UI: this flow opens an external help-centre link and closes.
+    visible: false,
+    // Nothing on the Support tab reads the selection or the balance, so neither is
+    // fetched. Both used to be skipped here too, just implicitly.
+    includeImageSelection: false,
+    includeBalance: false,
+  });
 };
 
 export default SupportController;

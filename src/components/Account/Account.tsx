@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import { sendMessageToSandBox } from "@api/index";
 import { Button } from "@components/index";
-import { BtnType, TabType } from "../../types/enums";
+import { BtnType, TabType } from "@app-types/enums";
 import { PRICING } from "@constants/url";
 import "./styles.scss";
 import { useBalance } from "../../context/BalanceContext";
@@ -27,8 +27,8 @@ const Account: React.FC<AccountProps> = ({ setIsCreditsInsufficient, gottenKey, 
         <span className="text">Account current balance</span>
         <span className="credits-text">{balance} credits</span>
       </div>
-      <Button type={BtnType.BUY_MORE} cb={() => window.open(PRICING, "_blank")} tabIndex={8} />
-      <Button type={BtnType.CHANGE_KEY} cb={() => changeTab(TabType.SET_API_KEY)} tabIndex={9} />
+      <Button type={BtnType.BUY_MORE} cb={() => window.open(PRICING, "_blank")} tabIndex={0} />
+      <Button type={BtnType.CHANGE_KEY} cb={() => changeTab(TabType.SET_API_KEY)} tabIndex={0} />
     </div>
   );
 };

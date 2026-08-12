@@ -13,3 +13,4 @@ export { default as Button } from './button';
 export { default as GenerateImage } from './generateImage';
 export { default as BalanceBanner } from './balanceBanner';
 export { default as OfflineBanner } from './offlineBanner';
+export { default as PanelFooter, PANEL_FOOTER_ID } from './PanelFooter';

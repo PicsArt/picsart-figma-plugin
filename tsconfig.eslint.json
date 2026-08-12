@@ -5,7 +5,7 @@
     "noUnusedParameters": false
   },
   "include": [
-    "code.ts",
+    "vitest.config.ts",
     "assets/**/*.ts",
     "constants/**/*.ts",
     "controllers/**/*.ts",

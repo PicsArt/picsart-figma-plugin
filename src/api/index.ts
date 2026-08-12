@@ -1,6 +1,7 @@
-import { TOKEN_ERR, BALANACE, HEADERAPI, PICSARTURL, GENAIURL, UPSCALE, GENERATEIMAGE, KEY_WRONG_ERR, REMOVEBG, REMOVEBG_SHADOW_DISABLED, REMOVEBG_SHADOW_CUSTOM } from "@constants/index";
-import getImageBinary from "@utils/imageprocessor";
+import { BALANACE, TYPE_SET_BALANCE, HEADERAPI, PICSARTURL, GENAIURL, UPSCALE, GENERATEIMAGE, EDITIMAGE, EDIT_MODE_ASYNC, KEY_WRONG_ERR, REMOVEBG, REMOVEBG_SHADOW_DISABLED, REMOVEBG_SHADOW_CUSTOM, REMOVE_BG_FAILED_ERR, REMOVE_BG_REJECTED_ERR, UPSCALE_FAILED_ERR, UPSCALE_REJECTED_ERR, GENERATE_IMAGE_FAILED_ERR, GENERATE_IMAGE_REJECTED_ERR, EDIT_IMAGE_FAILED_ERR, EDIT_IMAGE_REJECTED_ERR, UNSUPPORTED_MEDIA_ERR, BALANCE_UNAVAILABLE_ERR, RESULT_DOWNLOAD_FAILED_ERR } from "@constants/index";
+import getImageBinary, { imageTypeOf, type PreparedSource } from "@utils/imageBinary";
 import { customFetch } from "./customFetch";
+import { describeApiFailure, describeTransientFailure, fetchResultBytes, isAbortError, isTokenError, readApiText, readJsonBody } from "./apiError";
 
 interface BalanceResponse {
     message?: string;
@@ -34,6 +35,26 @@ interface GenerateImageOptions {
     model?: string;
 }
 
+interface EditImageOptions {
+    prompt: string;
+    count: number;
+    format: string;
+    model?: string;
+}
+
+interface EditImageResponse {
+    /** The published spec's field. */
+    inference_id?: string;
+    /** What the older public reference documented. Belt and braces. */
+    transaction_id?: string;
+    id?: string;
+    status?: string;
+    /** Present when the call ran synchronously: one entry per requested candidate. */
+    data?: Array<{ id?: string; url?: string }>;
+    message?: string;
+    detail?: string;
+}
+
 // Advanced removebg parameters. Every field is optional and only sent when set,
 // so a request built from the UI defaults matches the one this plugin sent
 // before advanced settings existed.
@@ -60,9 +81,25 @@ interface RemoveBackgroundOptions {
 // Match case-insensitively against both so a vocabulary change on either side
 // cannot turn a finished generation back into a timeout.
 const SUCCESS_STATUSES = ["success", "finished", "done"];
+const IN_FLIGHT_STATUSES = ["processing", "queued", "pending", "in_progress", "running", "accepted"];
+const FAILURE_STATUSES = ["failed", "error", "cancelled", "canceled", "rejected"];
 
 const isStatus = (status: string | undefined, expected: string[]): boolean =>
     !!status && expected.indexOf(status.toLowerCase()) !== -1;
+
+// Defined alongside the other response-reading helpers, because readJsonBody has
+// to re-throw an abort rather than treat it as an unparseable body. Re-exported
+// here so callers keep importing it from @api/index.
+export { isAbortError };
+
+// Both paid image endpoints answer with a URL to fetch rather than with the
+// bytes. Read through it rather than indexing `res.data.url` directly: on any
+// error body there is no `data`, and the bare index threw a TypeError that
+// buried the API's own explanation.
+const readResultUrl = (body: unknown): string | null => {
+    const url = (body as { data?: { url?: unknown } } | null)?.data?.url;
+    return typeof url === "string" && url ? url : null;
+};
 
 export const extractCreditsFromResponse = (response: Response): number | null => {
     const creditsHeader = response.headers.get('x-picsart-credit-available');
@@ -73,6 +110,25 @@ export const extractCreditsFromResponse = (response: Response): number | null =>
         }
     }
     return null;
+};
+
+/**
+ * Read the balance and tell the sandbox about it.
+ *
+ * Call this **after** a paid job has finished, not when it was accepted. `getBalance`
+ * is free, so the extra round trip costs nothing and is the only way to get a number
+ * that reflects the charge — see `extractCreditsFromResponse` above for the
+ * measurement.
+ *
+ * A failed read is dropped rather than posted: the sandbox's guard would reject it
+ * anyway, and posting a failure here would replace a correct cached balance with a
+ * worse one.
+ */
+export const refreshBalance = async (key: string): Promise<void> => {
+    const balance = await getBalance(key);
+    if (balance.success && typeof balance.msg === "number") {
+        sendMessageToSandBox(true, String(balance.msg), TYPE_SET_BALANCE);
+    }
 };
 
 export const sendMessageToSandBox = (success: boolean, msg: string | Uint8Array, type? : string, scaleFactor? : number, additionalData?: Record<string, unknown>) => {
@@ -89,24 +145,30 @@ export const sendMessageToSandBox = (success: boolean, msg: string | Uint8Array,
 export const getBalance = async (key: string) : Promise<GetBalanceReturnType> => {
     try {
         const response = await customFetch(PICSARTURL + BALANACE, { headers: { [HEADERAPI] : key }});
-        const res : BalanceResponse = await response.json();
+        const res = (await readJsonBody(response)) as BalanceResponse | null;
 
-        if (res.message !== TOKEN_ERR) {
-            return {
-                success: true,
-                msg: res.credits
-            }
-        } else {
+        if (!response.ok || isTokenError(response.status, res)) {
             return {
                 success: false,
-                msg: KEY_WRONG_ERR
-            }
+                // A wrong key is the one failure with its own actionable wording;
+                // everything else is "we could not read it", not "it is wrong".
+                msg: isTokenError(response.status, res)
+                    ? KEY_WRONG_ERR
+                    : readApiText(res) || BALANCE_UNAVAILABLE_ERR,
+            };
         }
+
+        // A 200 whose body carries no number is not a balance of zero. Treated as
+        // one, it would tell a paying user they are out of credits.
+        if (typeof res?.credits !== "number" || !isFinite(res.credits)) {
+            console.warn("Balance response carried no numeric credits field:", res);
+            return { success: false, msg: BALANCE_UNAVAILABLE_ERR };
+        }
+
+        return { success: true, msg: res.credits };
     } catch (error) {
-        return {
-            success: false,
-            msg: (error as string)
-        }
+        console.error("Error reading the credit balance:", error);
+        return { success: false, msg: BALANCE_UNAVAILABLE_ERR };
     }
 };
 
@@ -137,45 +199,59 @@ export const generateImage = async (prompt: string, key: string, options: Genera
         })
         // Extract credits from response header
         const updatedCredits = extractCreditsFromResponse(response);
-        const res: GenerateImageResponse = await response.json();
-        
+        const res = (await readJsonBody(response)) as GenerateImageResponse | null;
+
         // An accepted job is identified by 202 plus the id we need to poll with,
         // not by the status string: the API answers "processing" here, so
         // matching on a literal would reject the request it just accepted.
-        if (response.status === 202 && res.inference_id) {
+        if (response.status === 202 && res?.inference_id) {
             return {
-                success: true,
+                success: true as const,
                 msg: "Image generation started",
                 inferenceId: res.inference_id,
                 updatedCredits: updatedCredits
             };
-        } else if (response.status === 401 && res.message === "token_error") {
-            return { success: false, msg: TOKEN_ERR };
-        } else {
-            return { success: false, msg: res.detail || res.message || "Unknown error occurred" };
         }
+
+        // Same treatment as the two image endpoints, and for the same reason: a
+        // rejected prompt or an out-of-range size is not retryable, and the raw
+        // "token_error" used to reach the user as the notification text.
+        return describeApiFailure({
+            status: response.status,
+            body: res,
+            rejected: GENERATE_IMAGE_REJECTED_ERR,
+            transient: GENERATE_IMAGE_FAILED_ERR,
+        });
     } catch (error) {
         console.error("Error generating image:", error);
-        return { success: false, msg: "Network error occurred" };
+        return describeTransientFailure(GENERATE_IMAGE_FAILED_ERR);
     }
 };
 
-export const checkGenerateImageStatus = async (inferenceId: string, key: string) => {
+export const checkGenerateImageStatus = async (inferenceId: string, key: string, signal?: AbortSignal) => {
     try {
         const response = await customFetch(`${GENAIURL}${GENERATEIMAGE}/inferences/${inferenceId}`, {
             method: "GET",
-            headers: { 
+            headers: {
                 [HEADERAPI]: key,
                 "X-Picsart-Plugin": "Figma"
             },
+            signal,
         });
 
-        const res: GenerateImageStatusResponse = await response.json();
-        if (response.status === 401 && res.message === "token_error") {
-            return { status: "error", msg: TOKEN_ERR };
+        const res = (await readJsonBody(response)) as GenerateImageStatusResponse | null;
+
+        if (!response.ok || isTokenError(response.status, res)) {
+            const failure = describeApiFailure({
+                status: response.status,
+                body: res,
+                rejected: GENERATE_IMAGE_REJECTED_ERR,
+                transient: GENERATE_IMAGE_FAILED_ERR,
+            });
+            return { status: "error", msg: failure.msg };
         }
-        
-        if (isStatus(res.status, SUCCESS_STATUSES) && res.data) {
+
+        if (isStatus(res?.status, SUCCESS_STATUSES) && res?.data) {
             // Return all completed image URLs
             const completedImages = res.data.filter(item => isStatus(item.status, SUCCESS_STATUSES));
             if (completedImages.length > 0) {
@@ -187,53 +263,169 @@ export const checkGenerateImageStatus = async (inferenceId: string, key: string)
             }
         }
 
-        // Still in flight, or a terminal failure the caller reports verbatim —
-        // prefer the API's own wording over echoing the bare status back.
-        return { status: res.status, msg: res.detail || res.message || res.status };
+        if (
+            !isStatus(res?.status, IN_FLIGHT_STATUSES) &&
+            !isStatus(res?.status, FAILURE_STATUSES)
+        ) {
+            // Unknown vocabulary. The caller keeps polling, which is the right
+            // behaviour — but nothing server-side records that we did not recognise
+            // the word, because the poll itself succeeded.
+            console.warn("Unrecognised poll status; still polling:", res?.status, res);
+        }
+
+        // Still in flight, or a terminal failure the caller reports. The API's own
+        // wording wins when there is any; the bare status used to be the fallback,
+        // which surfaced a one-word "failed" toast with nothing to act on.
+        return {
+            status: typeof res?.status === "string" ? res.status : "error",
+            msg: readApiText(res) || GENERATE_IMAGE_FAILED_ERR,
+        };
     } catch (error) {
+        // An abort is the caller withdrawing, not a status-check failure. Let it
+        // propagate so the caller can stay silent instead of reporting an error
+        // for work it cancelled itself.
+        if (isAbortError(error)) throw error;
         console.error("Error checking image generation status:", error);
         return { status: "error", msg: "Failed to check status" };
     }
 };
 
-export const downloadGeneratedImages = async (imageUrls: string[]) => {
+const DOWNLOAD_CONCURRENCY = 3;
+const DOWNLOAD_ATTEMPTS = 2;
+const DOWNLOAD_RETRY_DELAY_MS = 750;
+
+const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+const downloadOne = async (
+    url: string,
+    signal?: AbortSignal
+): Promise<Uint8Array | null> => {
+    for (let attempt = 1; attempt <= DOWNLOAD_ATTEMPTS; attempt++) {
+        const result = await fetchResultBytes(url, signal);
+        if ("ok" in result) return result.bytes;
+        if (!result.retryable || attempt === DOWNLOAD_ATTEMPTS) return null;
+        await delay(DOWNLOAD_RETRY_DELAY_MS * attempt);
+    }
+    return null;
+};
+
+export const downloadGeneratedImages = async (imageUrls: string[], signal?: AbortSignal) => {
     try {
-        const downloadPromises = imageUrls.map(async (url, index) => {
-            const imageResponse = await fetch(url);
-            if (!imageResponse.ok) {
-                throw new Error(`Failed to download image ${index + 1}: ${imageResponse.status}`);
-            }
-            
-            const blob = await imageResponse.blob();
-            const arrayBuffer = await blob.arrayBuffer();
-            return new Uint8Array(arrayBuffer);
-        });
+        const images: Uint8Array[] = [];
+        let failed = 0;
 
-        const imageArrays = await Promise.all(downloadPromises);
-        return { success: true, images: imageArrays };
+        for (let start = 0; start < imageUrls.length; start += DOWNLOAD_CONCURRENCY) {
+            if (signal?.aborted) break;
+            const batch = imageUrls.slice(start, start + DOWNLOAD_CONCURRENCY);
+            const settled = await Promise.all(batch.map((url) => downloadOne(url, signal)));
+            settled.forEach((bytes) => (bytes ? images.push(bytes) : failed++));
+        }
 
+        if (images.length === 0) {
+            return { success: false as const, msg: RESULT_DOWNLOAD_FAILED_ERR };
+        }
+        return { success: true as const, images, failed };
     } catch (error) {
+        if (isAbortError(error)) throw error;
         console.error("Error downloading generated images:", error);
-        return { success: false, msg: error instanceof Error ? error.message : String(error) };
+        // The thrown text is JS internals, so it stays in the console.
+        return { success: false as const, msg: RESULT_DOWNLOAD_FAILED_ERR };
     }
 };
 
-export const downloadGeneratedImage = async (imageUrl: string) => {
+export const editImage = async (
+    source: PreparedSource,
+    key: string,
+    options: EditImageOptions
+) => {
+    if (!options.prompt.trim()) {
+        return { success: false as const, msg: "An instruction is required", retryable: false };
+    }
+
     try {
-        const imageResponse = await fetch(imageUrl);
-        if (!imageResponse.ok) {
-            throw new Error(`Failed to download image: ${imageResponse.status}`);
+        const formData = new FormData();
+        // Named with the real extension so an API that reads the filename agrees with
+        // the blob's own content type instead of seeing a bare "blob". The source is
+        // prepared by the caller — measured, floor-checked and downscaled to Figma's
+        // 4096 ceiling — because the caller is also what discloses the downscale.
+        formData.append("image", source.blob, `image.${source.extension}`);
+        formData.append("prompt", options.prompt);
+        formData.append("count", String(options.count));
+        // Sent explicitly rather than relying on a default the two authorities
+        // disagree about: the worker command declares lowercase `png`, the published
+        // spec declares uppercase `JPG`.
+        formData.append("format", options.format);
+        // A field, not the `Prefer` header — the header is not on the gateway's CORS
+        // allow-list, so an iframe cannot send it. See the note above.
+        formData.append("mode", EDIT_MODE_ASYNC);
+        // Omitted rather than sent empty, so the API applies its own default when the
+        // user has not picked a model.
+        if (options.model) formData.append("model", options.model);
+
+        const response = await customFetch(GENAIURL + EDITIMAGE, {
+            method: "POST",
+            // Only headers the gateway's CORS preflight permits. Adding one that is not
+            // on that list breaks this call in Figma while leaving every test and every
+            // curl green — see CORS_SAFE_REQUEST_HEADERS in constants/url.ts.
+            headers: { [HEADERAPI]: key },
+            body: formData,
+        });
+
+        const updatedCredits = extractCreditsFromResponse(response);
+        const res = (await readJsonBody(response)) as EditImageResponse | null;
+
+        // 202 is the accepted-and-queued path this plugin asks for.
+        if (response.status === 202) {
+            // inference_id per the published spec; the two fallbacks cost nothing and
+            // cover the `transaction_id` the older reference documented.
+            const inferenceId = res?.inference_id ?? res?.transaction_id ?? res?.id;
+            if (inferenceId) {
+                return {
+                    success: true as const,
+                    inferenceId,
+                    imageUrls: undefined,
+                    updatedCredits,
+                };
+            }
+            // Accepted, charged, and no id to poll with. Nothing server-side records
+            // this, because from its side the request succeeded.
+            console.warn("Edit accepted (202) without an inference id:", res);
+            return describeTransientFailure(EDIT_IMAGE_FAILED_ERR);
         }
-        
-        const blob = await imageResponse.blob();
-        const arrayBuffer = await blob.arrayBuffer();
-        const uint8Array = new Uint8Array(arrayBuffer);
 
-        return { success: true, msg: uint8Array };
+        // 200 means the proxy ignored `Prefer` and ran it synchronously. The result is
+        // inline, in the same array shape the poll returns.
+        if (response.ok) {
+            const imageUrls = (res?.data ?? [])
+                .map((entry) => entry.url)
+                .filter((url): url is string => typeof url === "string" && !!url);
+            if (imageUrls.length > 0) {
+                return {
+                    success: true as const,
+                    inferenceId: undefined,
+                    imageUrls,
+                    updatedCredits,
+                };
+            }
+            console.warn("Edit returned 200 with no result URLs:", res);
+            return describeTransientFailure(EDIT_IMAGE_FAILED_ERR);
+        }
 
+        // 415 has its own sentence: the format itself was refused, which no different
+        // instruction and no retry changes.
+        if (response.status === 415) {
+            return { success: false as const, msg: UNSUPPORTED_MEDIA_ERR, retryable: false };
+        }
+
+        return describeApiFailure({
+            status: response.status,
+            body: res,
+            rejected: EDIT_IMAGE_REJECTED_ERR,
+            transient: EDIT_IMAGE_FAILED_ERR,
+        });
     } catch (error) {
-        console.error("Error downloading generated image:", error);
-        return { success: false, msg: error instanceof Error ? error.message : String(error) };
+        console.error("Error editing image:", error);
+        return describeTransientFailure(EDIT_IMAGE_FAILED_ERR);
     }
 };
 
@@ -243,7 +435,9 @@ export const removeBackgroundApi = async (imageBytes: Uint8Array, key: string, o
 
         const formData = new FormData();
         formData.append("size", "auto");
-        formData.append("image", imageBinary);
+        // Named with the real extension so an API that reads the filename agrees
+        // with the blob's own content type instead of seeing a bare "blob".
+        formData.append("image", imageBinary, `image.${imageTypeOf(imageBytes).extension}`);
 
         if (options.output_type) formData.append("output_type", options.output_type);
         if (options.format) formData.append("format", options.format);
@@ -279,26 +473,44 @@ export const removeBackgroundApi = async (imageBytes: Uint8Array, key: string, o
         // Extract credits from response header
         const updatedCredits = extractCreditsFromResponse(response);
 
-        const res = await response.json();
-        if (res.message === TOKEN_ERR) {
-            return { success: false, msg: TOKEN_ERR};
+        const res = await readJsonBody(response);
+
+        // The status is read before the body is used for anything. A 422 carries
+        // the reason the image was refused, and that reason is what the user
+        // needs — not a generic "try again" for a request that cannot succeed.
+        if (!response.ok || isTokenError(response.status, res)) {
+            return describeApiFailure({
+                status: response.status,
+                body: res,
+                rejected: REMOVE_BG_REJECTED_ERR,
+                transient: REMOVE_BG_FAILED_ERR,
+            });
         }
 
-        const imageResponse = await fetch(res.data.url);
-        const blob = await imageResponse.blob();
+        const resultUrl = readResultUrl(res);
+        if (!resultUrl) {
+            // Warned, not errored: a 200 that carries no result URL is one of the
+            // contract divergences the server cannot see, because from its side
+            // this request succeeded.
+            console.warn("Remove background succeeded without a result URL:", res);
+            return describeTransientFailure(REMOVE_BG_FAILED_ERR);
+        }
 
-        const arrayBuffer = await blob.arrayBuffer();
-        const uint8Array = new Uint8Array(arrayBuffer);
+        // Status-checked and origin-asserted, unlike the bare fetch this replaces.
+        const download = await fetchResultBytes(resultUrl);
+        if (!("ok" in download)) return download;
 
-        return { 
-            success: true, 
-            msg: uint8Array,
+        return {
+            success: true as const,
+            msg: download.bytes,
             updatedCredits: updatedCredits
         };
 
     } catch (error) {
+        // A thrown fetch is offline/DNS/CORS. Its message is JS internals, so the
+        // console keeps it and the user gets something they can act on.
         console.error("Error removing background:", error);
-        return { success: false, msg: error instanceof Error ? error.message : String(error) };
+        return describeTransientFailure(REMOVE_BG_FAILED_ERR);
     }
 };
 
@@ -308,7 +520,9 @@ export const enhanceImage = async (imageBytes: Uint8Array, key: string, scaleFac
 
         const formData = new FormData();
         formData.append("size", "auto");
-        formData.append("image", imageBinary);
+        // Named with the real extension so an API that reads the filename agrees
+        // with the blob's own content type instead of seeing a bare "blob".
+        formData.append("image", imageBinary, `image.${imageTypeOf(imageBytes).extension}`);
         formData.append('upscale_factor', scaleFactor.toString());
         if (format) formData.append("format", format);
 
@@ -321,27 +535,38 @@ export const enhanceImage = async (imageBytes: Uint8Array, key: string, scaleFac
         // Extract credits from response header
         const updatedCredits = extractCreditsFromResponse(response);
 
-        const res = await response.json();
+        const res = await readJsonBody(response);
 
-        if (res.message === TOKEN_ERR) {
-            return { success: false, msg: TOKEN_ERR };
+        // Upscale is the endpoint that produced the bug this handling exists for:
+        // it answers 422 when the requested factor would push the result past its
+        // megapixel ceiling, and that sentence names the exact factor to avoid.
+        if (!response.ok || isTokenError(response.status, res)) {
+            return describeApiFailure({
+                status: response.status,
+                body: res,
+                rejected: UPSCALE_REJECTED_ERR,
+                transient: UPSCALE_FAILED_ERR,
+            });
         }
 
-        const imageResponse = await fetch(res.data.url);
-        const blob = await imageResponse.blob();
+        const resultUrl = readResultUrl(res);
+        if (!resultUrl) {
+            console.warn("Upscale succeeded without a result URL:", res);
+            return describeTransientFailure(UPSCALE_FAILED_ERR);
+        }
 
-        const arrayBuffer = await blob.arrayBuffer();
-        const uint8Array = new Uint8Array(arrayBuffer);
+        const download = await fetchResultBytes(resultUrl);
+        if (!("ok" in download)) return download;
 
-        return { 
-            success: true, 
-            msg: uint8Array,
+        return {
+            success: true as const,
+            msg: download.bytes,
             updatedCredits: updatedCredits
         };
 
     } catch (error) {
         console.error("Error enhancing image:", error);
-        return { success: false, msg: error instanceof Error ? error.message : String(error) };
+        return describeTransientFailure(UPSCALE_FAILED_ERR);
     }
 };
 
@@ -351,7 +576,7 @@ export default {
     removeBackgroundApi,
     enhanceImage,
     generateImage,
+    editImage,
     checkGenerateImageStatus,
-    downloadGeneratedImages,
-    downloadGeneratedImage
+    downloadGeneratedImages
 }

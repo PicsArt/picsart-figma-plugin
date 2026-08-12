@@ -1,50 +1,16 @@
-import { getBalance } from "@api/index";
-import {
-  TYPE_KEY,
-  API_KEY_NAME,
-  TYPE_TAB,
-  TAB_GENERATE_IMAGE,
-  WIDGET_HEIGHT_GENERATE_IMAGE,
-  TYPE_GET_BALANCE,
-} from "@constants/index";
-import CustomSessionStorage from "@services/CustomSessionStorage";
-import { sendImageSelectionStatus } from "@services/ImageProcessor";
+import { TAB_GENERATE_IMAGE, WIDGET_HEIGHT_GENERATE_IMAGE } from "@constants/index";
 import { setMessageListeners } from "@services/MessageListeners";
+import openPanel from "./openPanel";
 
 const GenerateImageController = async () => {
-  const apiKey = await figma.clientStorage.getAsync(API_KEY_NAME);
+  setMessageListeners(figma);
 
-  figma.showUI(__html__, {
-    visible: true,
-    themeColors: true,
+  await openPanel({
+    tab: TAB_GENERATE_IMAGE,
+    // One height regardless of key state: the panel is prompt-first, so it needs the
+    // same room either way.
     height: WIDGET_HEIGHT_GENERATE_IMAGE,
   });
-
-  setTimeout(() => {
-    figma.ui.postMessage({
-      type: TYPE_KEY,
-      payload: apiKey,
-    });
-
-    figma.ui.postMessage({
-      type: TYPE_TAB,
-      payload: TAB_GENERATE_IMAGE,
-    });
-    sendImageSelectionStatus();
-    setMessageListeners(figma);
-
-    const sessionStorage: CustomSessionStorage = CustomSessionStorage.getInstance();
-    if (apiKey && !sessionStorage.getCurrentSession()) {
-      getBalance(apiKey).then((res) => {
-        sessionStorage.setBalance(res.msg as number);
-        sessionStorage.setCurrentSession();
-        figma.ui.postMessage({
-          type: TYPE_GET_BALANCE,
-          payload: sessionStorage.getBalance(),
-        })
-      });
-    }
-  }, 400);
 };
 
 export default GenerateImageController;

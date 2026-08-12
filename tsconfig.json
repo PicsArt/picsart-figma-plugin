@@ -32,9 +32,18 @@
       "@components/*": ["src/components/*"],
       "@api/*": ["src/api/*"],
       "@ui/*": ["src/components/ui/*"],
-      "@types/*": ["src/types/*"]
+      // Renamed from "@types/*", which shadowed the DefinitelyTyped package scope.
+      "@app-types/*": ["src/types/*"]
     }
   },
-  "include": ["src/**/*", "src/types/global.d.ts", "routes/CommandRouter.ts"],
+  // services/__tests__ is listed explicitly: without it, `tsc --noEmit` would not
+  // typecheck the sandbox tests at all, so a test could reference a function that
+  // no longer exists and the gate would stay green.
+  "include": [
+    "src/**/*",
+    "src/types/global.d.ts",
+    "routes/CommandRouter.ts",
+    "services/__tests__/**/*"
+  ],
   "exclude": ["node_modules"]
 }

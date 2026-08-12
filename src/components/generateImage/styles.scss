@@ -77,7 +77,7 @@
   }
 
   &::placeholder {
-    color: #9E9E9E;
+    color: #757575;
   }
 
   // Custom scrollbar styles
@@ -133,7 +133,15 @@
   align-items: center;
 }
 
-.info-icon {
+// Scoped to its container, because these stylesheets are injected globally —
+// `import "./styles.scss"` with no CSS modules, so a bare class name here styles
+// every matching element in the plugin. `.info-icon` is also the selection
+// banner's status glyph, a plain div, and it was picking up this button's
+// `cursor: pointer` and purple hover background: a non-interactive icon that
+// invited a click and lit up when you passed over it. The `padding: 2px` came
+// with it too, inflating that 16px glyph to a 20px box and knocking it a pixel
+// out of line with the sentence beside it.
+.info-icon-container .info-icon {
   background: none;
   border: none;
   cursor: pointer;
@@ -202,7 +210,13 @@
 
 .prompt-textarea {
   width: 100%;
-  min-height: 290px;
+  /* 290px here was over half of a 568px panel, and the panel it sat in was only
+     600px tall — so the field the user types two lines into was pushing the
+     preset chips off the bottom edge. 200 is still four comfortable lines at
+     11px and it is what brings edit mode inside its window; the rule further
+     down already knew 180 was workable, since that is what it drops to whenever
+     the advanced panel needs the room. */
+  min-height: 200px;
   padding: 12px 40px 12px 12px;
   border: 1px solid #CBCBCB;
   border-radius: 8px;
@@ -216,7 +230,7 @@
   transition: all 0.3s ease;
   
   &::placeholder {
-    color: #9E9E9E;
+    color: #757575;
   }
 
   &:focus {
@@ -297,7 +311,7 @@
   font-family: "Inter";
   font-size: 9px;
   font-weight: 500;
-  color: #9E9E9E;
+  color: #757575;
   pointer-events: none;
   transition: bottom 0.3s ease;
   
@@ -455,7 +469,7 @@
     border-color: #CBCBCB;
 
     &::placeholder {
-      color: #9E9E9E;
+      color: #757575;
     }
 
     &:focus {
@@ -470,7 +484,7 @@
   .tab-hint {
     background: #F5F5F5;
     border-color: #E0E0E0;
-    color: #9E9E9E;
+    color: #757575;
   }
 
   .preset-tag {

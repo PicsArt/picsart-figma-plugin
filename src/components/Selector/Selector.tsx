@@ -68,7 +68,10 @@ const Selector: React.FC<SelectorProps> = ({ text, options, onChange, tabIndex }
       aria-haspopup="listbox"
     >
       <div className="label">
-        <span>{selectedOption || text}</span>
+        {/* A choice that is no longer on offer must not keep being displayed.
+            Upscale narrows its factor list when the selected layer changes, and a
+            label left showing 8x would name a factor the panel will not send. */}
+        <span>{options.indexOf(selectedOption) > -1 ? selectedOption : text}</span>
         <svg
           width="8"
           height="5"
