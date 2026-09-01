@@ -35,6 +35,25 @@ module.exports = tseslint.config(
     },
   },
   {
+    // The UI runs in an iframe that has no `figma` global — reaching for it
+    // there is a runtime crash, not a type error, and tsconfig's project-wide
+    // `types: ["plugin-typings"]` means TypeScript will happily allow it. This
+    // is the mechanical guard. src/code.ts is the sandbox entry point and the
+    // one legitimate exception, despite living under src/.
+    files: ['src/**/*.ts', 'src/**/*.tsx'],
+    ignores: ['src/code.ts'],
+    rules: {
+      'no-restricted-globals': [
+        'error',
+        {
+          name: 'figma',
+          message:
+            'The UI iframe has no figma global. Send a message to the sandbox instead — see services/MessageListeners.ts.',
+        },
+      ],
+    },
+  },
+  {
     ignores: ['dist', 'eslint.config.js', 'webpack.config.js'],
   },
 )

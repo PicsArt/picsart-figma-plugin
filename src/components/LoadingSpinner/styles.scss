@@ -10,9 +10,26 @@
     background-color: rgba(0, 0, 0, 0.6);
     z-index: 9999;
     display: flex;
+    // Column, so the message sits under the ring rather than beside it at 320px.
+    flex-direction: column;
     justify-content: center;
     align-items: center;
+    gap: 16px;
+    padding: 0 32px;
+    box-sizing: border-box;
 
+  // White on the 60% scrim over any theme surface, which is the one place in this
+  // plugin where a fixed light-on-dark pair is correct regardless of Figma's theme.
+  .loading-message {
+    margin: 0;
+    font-family: "Inter";
+    font-weight: 500;
+    font-size: 13px;
+    line-height: 1.4;
+    letter-spacing: 0.16px;
+    text-align: center;
+    color: #FFFFFF;
+  }
 
   .loading-spinner {
     width: 48px; 

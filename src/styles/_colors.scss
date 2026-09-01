@@ -8,33 +8,36 @@ $color-href-dark-text: #F40BF4;
 $color-href-light-text: #E543AA;
 $credits-left-text: #808080;
 $color-border: #CBCBCB;
-$color-buy-more-credits: #158380;
+$color-buy-more-credits: #E543AA;
 $color-default-white: #FFFFFF;
-$color-selector-text: #9E9E9E;
 $color-disbaled-background: #EDEDED;
 $color-h1-text: #616161;
 
-// selector
-$color-selector-text: #9E9E9E;
 
 // btn
-$color-premium-btn-background: #158380;
+$color-premium-btn-background: #E543AA;
 $color-premium-btn-text: #FFFFFF;
 $color-action-btns-selected-text: #920792;
 $color-action-btns-hovered: #920792;
 
 // href
-$color-premium-href-text: #158380;
+$color-premium-href-text: #E543AA;
 
 // input
 $color-premium-input-text: #454545;
 
 
-// messages 
-$color-error-text: #D31E2A;
-$color-error-border: #D31E2A;
-$color-warning-text: #ff9966; 
-$color-success-text: #158380;
+// messages
+//
+$light-color-error-text: #D31E2A;   // 5.26:1 on #FFFFFF
+$dark-color-error-text: #F87171;    // 5.05:1 on #2C2C2C
+$light-color-warning-text: #E543AA; // 3.67:1 on #FFFFFF
+$dark-color-warning-text: #E543AA;  // 3.80:1 on #2C2C2C
+$light-color-success-text: #E543AA; // 3.67:1 on #FFFFFF
+$dark-color-success-text: #E543AA;  // 3.80:1 on #2C2C2C
+
+$light-color-error-border: #D31E2A;
+$dark-color-error-border: #F87171;
 
 // disabled components
 $color-selector-disabled-text: #BFBFBF;
@@ -50,13 +53,17 @@ $color-picker-disabled-text: #BFBFBF;
 $color-picker-disabled-border: #D9D9D952;
 
 // New Design Light
-$light-color-option-deactive: #B2B2B2;
-$light-color-option-active: #333333;
+$light-color-option-deactive: #757575; // 4.61:1 on #FFFFFF (was #B2B2B2 at 2.12:1)
+$light-color-option-active: #333333;   // 12.63:1 on #FFFFFF
 
 
 // New Design dark
-$dark-color-option-deactive: #B2B2B2;
-$dark-color-option-active: #FFFFFF;
+$dark-color-option-deactive: #B2B2B2;  // 6.59:1 on #2C2C2C — fine as-is
+$dark-color-option-active: #FFFFFF;    // 13.97:1 on #2C2C2C
+
+
+$light-color-accent: #5A00EE; // 7.87:1 on #FFFFFF
+$dark-color-accent: #BD99F8;  // 6.04:1 on #2C2C2C
 
 
 

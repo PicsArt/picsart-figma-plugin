@@ -1,13 +1,9 @@
 import React, { useState } from "react";
-import { removeBackgroundApi, sendMessageToSandBox } from "@api/index";
+import { removeBackgroundApi, refreshBalance, sendMessageToSandBox } from "@api/index";
 import {
-  PRICING,
   PROCESSING_IMAGE,
   REMOVE_BG_FAILED_ERR,
-  TYPE_IMAGEBYTES,
   TYPE_NOTIFY,
-  TYPE_SET_BALANCE,
-  SelectOption,
   REMOVEBG_MODEL_OPTIONS,
   DEFAULT_REMOVEBG_MODEL,
   REMOVEBG_OUTPUT_TYPE_OPTIONS,
@@ -39,106 +35,28 @@ import {
   Button,
   ImageSelectionBanner,
   LoadingSpinner,
+  PanelFooter,
 } from "@components/index";
+import { SelectField, NumberField } from "@ui/index";
 import usePluginHeight from "@hooks/usePluginHeight";
-import { BtnType } from "../../types/enums";
+import useSelectedImage, { describeBytesFailure } from "@hooks/useSelectedImage";
+import resolveActionButton from "@utils/actionButton";
+import { applyImageToCanvas } from "@utils/placement";
+import { BannerStance, BtnType } from "@app-types/enums";
 import "./styles.scss";
 
 interface RemoveBackgroundProps {
   gottenKey: string;
-  imageBytes: Uint8Array;
-  setImageBytes: (bytes: Uint8Array) => void;
   isCreditsInsufficient: boolean;
   isOffline: boolean;
 }
 
-interface SelectFieldProps {
-  label: string;
-  value: string;
-  options: readonly (SelectOption | string)[];
-  tabIndex: number;
-  wide?: boolean;
-  onChange: (value: string) => void;
-}
-
-interface NumberFieldProps {
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  tabIndex: number;
-  wide?: boolean;
-  onChange: (value: number) => void;
-}
-
-// A plain string list is its own label; SelectOption lists label a value the
-// API expects but no user would recognise (an AIR model URN, "bottom-right").
-const toOption = (option: SelectOption | string): SelectOption =>
-  typeof option === "string" ? { label: option, value: option } : option;
-
-// The browser does not enforce min/max on a typed-in number, and clearing the
-// field yields "", so every value is pinned to the API's accepted range here.
-const clamp = (value: string, min: number, max: number): number => {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return min;
-  return Math.min(max, Math.max(min, parsed));
-};
-
-const SelectField: React.FC<SelectFieldProps> = ({
-  label,
-  value,
-  options,
-  tabIndex,
-  wide,
-  onChange,
-}) => (
-  <div className={`option-group ${wide ? "wide" : ""}`}>
-    <label className="option-label">{label}</label>
-    <select
-      className="option-select"
-      value={value}
-      tabIndex={tabIndex}
-      onChange={(e) => onChange(e.target.value)}
-    >
-      {options.map(toOption).map((option) => (
-        <option key={option.value} value={option.value}>
-          {option.label}
-        </option>
-      ))}
-    </select>
-  </div>
-);
-
-const NumberField: React.FC<NumberFieldProps> = ({
-  label,
-  value,
-  min,
-  max,
-  tabIndex,
-  wide,
-  onChange,
-}) => (
-  <div className={`option-group ${wide ? "wide" : ""}`}>
-    <label className="option-label">{label}</label>
-    <input
-      className="option-input"
-      type="number"
-      min={min}
-      max={max}
-      value={value}
-      tabIndex={tabIndex}
-      onChange={(e) => onChange(clamp(e.target.value, min, max))}
-    />
-  </div>
-);
-
 const RemoveBackground: React.FC<RemoveBackgroundProps> = ({
   gottenKey,
-  imageBytes,
-  setImageBytes,
   isCreditsInsufficient,
   isOffline,
 }) => {
+  const { selection, hasImage, takeImage } = useSelectedImage();
   const [loading, setLoading] = useState<boolean>(false);
   const [showAdvancedSettings, setShowAdvancedSettings] = useState<boolean>(false);
 
@@ -167,18 +85,29 @@ const RemoveBackground: React.FC<RemoveBackgroundProps> = ({
   );
 
   const processImage = async () => {
-    if (
-      !imageBytes ||
-      !gottenKey ||
-      !imageBytes.length ||
-      isCreditsInsufficient ||
-      isOffline
-    )
+    // `loading` is in this guard because the loading overlay blocks the mouse but
+    // not the keyboard, so a second Enter or Space on the focused button started a
+    // second billable call.
+    if (!hasImage || !gottenKey || isCreditsInsufficient || isOffline || loading) {
       return;
+    }
     setLoading(true);
+
+    // Bytes are read here, not held in shared state, and the nodeId is captured at
+    // the same moment. That pairing is the point: the result goes back to the layer
+    // it came from, even if the user clicks elsewhere while the call is in flight.
+    const picked = await takeImage();
+    if (!picked.ok) {
+      // Names which failure it was. "The layer was deleted" and "that layer holds
+      // no image" used to arrive as the same generic sentence.
+      sendMessageToSandBox(false, describeBytesFailure(picked), TYPE_NOTIFY);
+      setLoading(false);
+      return;
+    }
+
     sendMessageToSandBox(true, PROCESSING_IMAGE, TYPE_NOTIFY);
 
-    const response = await removeBackgroundApi(imageBytes, gottenKey, {
+    const response = await removeBackgroundApi(picked.bytes, gottenKey, {
       model,
       output_type: outputType,
       format,
@@ -196,52 +125,47 @@ const RemoveBackground: React.FC<RemoveBackgroundProps> = ({
       shadow_offset_y: shadowOffsetY,
     });
     if (!response.success) {
-      sendMessageToSandBox(false, REMOVE_BG_FAILED_ERR, TYPE_NOTIFY);
+      // Show what the API said. Validation errors here name the offending
+      // setting, which a fixed "please try again" hid behind a retry that
+      // charges nothing but changes nothing either.
+      sendMessageToSandBox(false, response.msg || REMOVE_BG_FAILED_ERR, TYPE_NOTIFY);
       setLoading(false);
       return;
     }
 
-    setImageBytes(response.msg as Uint8Array);
-    sendMessageToSandBox(response.success, response.msg, TYPE_IMAGEBYTES);
-    // A failed call carries no credit header, so there is no balance to report.
-    if (response.updatedCredits != null) {
-      sendMessageToSandBox(true, String(response.updatedCredits), TYPE_SET_BALANCE);
-    }
+    // The result is NOT written back into shared selection state. It used to be
+    // (setImageBytes(response.msg)), which made one variable both the input and
+    // the output of a paid call: pressing the button again re-processed the
+    // previous result instead of the source layer, and charged for it.
+    // Awaited. The write happens in the sandbox and can fail there, so the loading
+    // state has to survive until the canvas has actually changed.
+    await applyImageToCanvas({ bytes: response.msg, nodeId: picked.nodeId });
+    // Re-read rather than trusting the response header — it is pre-charge. See
+    // extractCreditsFromResponse in src/api/index.ts for the measurement.
+    await refreshBalance(gottenKey);
     setLoading(false);
   };
 
-  let btnTpe = null;
-  let cb = () => {};
-  if (isOffline) {
-    // The offline banner explains why; leave cb as the no-op.
-    btnTpe = BtnType.REMOVE_BG_DISABLED;
-  } else if (imageBytes && imageBytes.length && gottenKey && !isCreditsInsufficient) {
-    btnTpe = BtnType.REMOVE_BG_ACTIVE;
-    cb = processImage;
-  } else if (
-    imageBytes &&
-    imageBytes.length &&
-    gottenKey &&
-    isCreditsInsufficient
-  ) {
-    btnTpe = BtnType.REMOVE_BG_NO_CREDITS;
-    cb = () => {
-      window.open(PRICING, "_blank");
-    };
-  } else {
-    btnTpe = BtnType.REMOVE_BG_DISABLED;
-  }
+  const { btnType, cb } = resolveActionButton({
+    isOffline,
+    hasKey: !!gottenKey,
+    isReady: hasImage,
+    isCreditsInsufficient,
+    active: BtnType.REMOVE_BG_ACTIVE,
+    noCredits: BtnType.REMOVE_BG_NO_CREDITS,
+    disabled: BtnType.REMOVE_BG_DISABLED,
+    onAction: processImage,
+  });
 
   return (
     <div className="removebg-container">
-      <ImageSelectionBanner
-        isImageSelected={imageBytes && imageBytes.length > 0}
-      />
+      {/* Blocking: without a selected image this tab can do nothing at all. */}
+      <ImageSelectionBanner selection={selection} stance={BannerStance.BLOCKING} />
 
       <div className="advanced-settings">
         <label
           className="settings-toggle"
-          tabIndex={8}
+          tabIndex={0}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
@@ -265,7 +189,7 @@ const RemoveBackground: React.FC<RemoveBackgroundProps> = ({
               label="Model"
               value={model}
               options={REMOVEBG_MODEL_OPTIONS}
-              tabIndex={9}
+              tabIndex={0}
               wide
               onChange={setModel}
             />
@@ -273,14 +197,14 @@ const RemoveBackground: React.FC<RemoveBackgroundProps> = ({
               label="Output type"
               value={outputType}
               options={REMOVEBG_OUTPUT_TYPE_OPTIONS}
-              tabIndex={10}
+              tabIndex={0}
               onChange={setOutputType}
             />
             <SelectField
               label="Format"
               value={format}
               options={REMOVEBG_FORMAT_OPTIONS}
-              tabIndex={11}
+              tabIndex={0}
               onChange={setFormat}
             />
 
@@ -290,7 +214,7 @@ const RemoveBackground: React.FC<RemoveBackgroundProps> = ({
                   label="Scale"
                   value={scale}
                   options={REMOVEBG_SCALE_OPTIONS}
-                  tabIndex={12}
+                  tabIndex={0}
                   onChange={setScale}
                 />
                 <NumberField
@@ -298,7 +222,7 @@ const RemoveBackground: React.FC<RemoveBackgroundProps> = ({
                   value={bgBlur}
                   min={REMOVEBG_PERCENT_MIN}
                   max={REMOVEBG_PERCENT_MAX}
-                  tabIndex={13}
+                  tabIndex={0}
                   onChange={setBgBlur}
                 />
 
@@ -308,7 +232,7 @@ const RemoveBackground: React.FC<RemoveBackgroundProps> = ({
                     className="option-input"
                     type="text"
                     value={bgColor}
-                    tabIndex={14}
+                    tabIndex={0}
                     onChange={(e) => setBgColor(e.target.value)}
                     placeholder="e.g. #82d5fa or blue (optional)"
                   />
@@ -318,7 +242,7 @@ const RemoveBackground: React.FC<RemoveBackgroundProps> = ({
                   <input
                     type="checkbox"
                     checked={autoCenter}
-                    tabIndex={15}
+                    tabIndex={0}
                     onChange={(e) => setAutoCenter(e.target.checked)}
                   />
                   <span>Auto-center subject</span>
@@ -329,7 +253,7 @@ const RemoveBackground: React.FC<RemoveBackgroundProps> = ({
                   value={strokeSize}
                   min={REMOVEBG_PERCENT_MIN}
                   max={REMOVEBG_PERCENT_MAX}
-                  tabIndex={16}
+                  tabIndex={0}
                   onChange={setStrokeSize}
                 />
 
@@ -341,7 +265,7 @@ const RemoveBackground: React.FC<RemoveBackgroundProps> = ({
                         className="option-input"
                         type="text"
                         value={strokeColor}
-                        tabIndex={17}
+                        tabIndex={0}
                         onChange={(e) => setStrokeColor(e.target.value)}
                         placeholder="e.g. FFFFFF"
                       />
@@ -351,7 +275,7 @@ const RemoveBackground: React.FC<RemoveBackgroundProps> = ({
                       value={strokeOpacity}
                       min={REMOVEBG_PERCENT_MIN}
                       max={REMOVEBG_PERCENT_MAX}
-                      tabIndex={18}
+                      tabIndex={0}
                       onChange={setStrokeOpacity}
                     />
                   </>
@@ -361,7 +285,7 @@ const RemoveBackground: React.FC<RemoveBackgroundProps> = ({
                   label="Shadow"
                   value={shadow}
                   options={REMOVEBG_SHADOW_OPTIONS}
-                  tabIndex={19}
+                  tabIndex={0}
                   wide
                   onChange={setShadow}
                 />
@@ -373,7 +297,7 @@ const RemoveBackground: React.FC<RemoveBackgroundProps> = ({
                       value={shadowOpacity}
                       min={REMOVEBG_PERCENT_MIN}
                       max={REMOVEBG_PERCENT_MAX}
-                      tabIndex={20}
+                      tabIndex={0}
                       onChange={setShadowOpacity}
                     />
                     <NumberField
@@ -381,7 +305,7 @@ const RemoveBackground: React.FC<RemoveBackgroundProps> = ({
                       value={shadowBlur}
                       min={REMOVEBG_PERCENT_MIN}
                       max={REMOVEBG_PERCENT_MAX}
-                      tabIndex={21}
+                      tabIndex={0}
                       onChange={setShadowBlur}
                     />
                   </>
@@ -394,7 +318,7 @@ const RemoveBackground: React.FC<RemoveBackgroundProps> = ({
                       value={shadowOffsetX}
                       min={REMOVEBG_OFFSET_MIN}
                       max={REMOVEBG_OFFSET_MAX}
-                      tabIndex={22}
+                      tabIndex={0}
                       onChange={setShadowOffsetX}
                     />
                     <NumberField
@@ -402,7 +326,7 @@ const RemoveBackground: React.FC<RemoveBackgroundProps> = ({
                       value={shadowOffsetY}
                       min={REMOVEBG_OFFSET_MIN}
                       max={REMOVEBG_OFFSET_MAX}
-                      tabIndex={23}
+                      tabIndex={0}
                       onChange={setShadowOffsetY}
                     />
                   </>
@@ -413,8 +337,13 @@ const RemoveBackground: React.FC<RemoveBackgroundProps> = ({
         )}
       </div>
 
-      <Button type={btnTpe} cb={cb} tabIndex={24} />
-      {loading && <LoadingSpinner />}
+      {/* Portalled outside the scroller. This panel is the tallest of the three with
+          its advanced settings open, so it is the one where the primary action most
+          often scrolled out of sight. */}
+      <PanelFooter>
+        <Button type={btnType} cb={cb} tabIndex={0} />
+        {loading && <LoadingSpinner message={PROCESSING_IMAGE} />}
+      </PanelFooter>
     </div>
   );
 };

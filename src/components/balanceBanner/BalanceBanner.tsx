@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import { sendMessageToSandBox } from "@api/index";
 import { PRICING } from "@constants/url";
-import { BtnType } from "../../types/enums";
+import { BtnType } from "@app-types/enums";
 import { Button } from "@components/index";
 import { useBalance } from "../../context/BalanceContext";
 import { TYPE_GET_BALANCE } from "@constants/types";
@@ -37,14 +37,14 @@ const BalanceBanner: React.FC<Props> = ({
           <Button
             type={BtnType.ADD_CREDITS}
             cb={() => window.open(PRICING, "_blank")}
-            tabIndex={99}
+            tabIndex={0}
           />
         </div>
       ) : (
         <div
           className="plus-container"
           onClick={() => window.open(PRICING, "_blank")}
-          tabIndex={99}
+          tabIndex={0}
           role="button"
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {

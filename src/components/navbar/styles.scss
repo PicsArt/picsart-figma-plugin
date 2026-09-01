@@ -1,6 +1,16 @@
 @use "@styles/variables" as *;
 @use "@styles/colors" as *;
 
+// The tab row is a flex item of `.main-content`, and a flex item defaults to
+// `flex-shrink: 1`. Without this it compressed from the 32px declared below to
+// 14px whenever the panel was short — absorbing the first 18px of every overflow
+// before a single control visibly clipped, so a panel that was already too small
+// looked fine and the tab labels just quietly went thin. Theme-independent
+// geometry, so it sits outside both theme blocks rather than in each of them.
+.navbar-container {
+  flex-shrink: 0;
+}
+
 .figma-light {
   .navbar-container {
     width: "100%";

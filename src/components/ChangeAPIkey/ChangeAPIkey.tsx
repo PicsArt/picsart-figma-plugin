@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { getBalance, sendMessageToSandBox } from "@api/index";
 import { Button } from "@components/index";
-import { BtnType } from "../../types/enums";
+import { BtnType } from "@app-types/enums";
 import {
   KEY_WRONG_ERR,
   KEY_SET,
@@ -78,7 +78,7 @@ const ChangeAPIkey: React.FC<props> = ({ changeKey }) => {
           type="text"
           name="key"
           className={`keyset-input`}
-          tabIndex={8}
+          tabIndex={0}
         />
       </div>
       {error && <span className="error-text">{error}</span>}
@@ -86,12 +86,12 @@ const ChangeAPIkey: React.FC<props> = ({ changeKey }) => {
       <Button
         type={value ? BtnType.SUBMIT_ACTIVE : BtnType.SUBMIT_DISABLED}
         cb={checkKey}
-        tabIndex={9}
+        tabIndex={0}
       />
       <Button
         type={BtnType.NEW_KEY}
         cb={() => window.open(APPS, "_blank")}
-        tabIndex={10}
+        tabIndex={0}
       />
     </div>
   );

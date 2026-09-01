@@ -1,71 +1,109 @@
 @use "@styles/variables" as *;
 @use "@styles/colors" as *;
 
-.figma-light {
+// Geometry is theme-independent, so it is declared once rather than duplicated
+// into both theme blocks the way this file used to do it. Only colour differs.
+.imageselectionbanner-container {
+    display: flex;
+    flex-direction: row;
+    // Top, not centre. The state line wraps to two lines on the longer strings,
+    // and centring a 16px icon against a 36px block parks it in the gutter
+    // between the two lines instead of beside the sentence it labels.
+    align-items: flex-start;
+    flex-wrap: wrap;
+    width: 100%;
+    gap: 8px;
+    margin-top: 12px;
+    margin-bottom: 12px;
+    min-height: 32px;
 
-    .imageselectionbanner-container {
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        width: 100%;
-        gap: 8px;
-        margin-top: 12px;
-        margin-bottom: 12px;
-        height: 32px;
+    .danger-icon {
+        width: 20px;
+        height: 18px;
+        flex-shrink: 0;
+    }
 
-        .danger-icon {
-            width: 20px;
-            height: 18px;
-        }
+    .check-icon,
+    .info-icon {
+        width: 16px;
+        height: 16px;
+        flex-shrink: 0;
+    }
 
-        .check-icon {
-            width: 16px;
-            height: 16px;
-        }
+    .text {
+        /* Keeps the icon and the sentence on the same line.
+         *
+         * Without a `flex` declaration this span's basis is `auto`, so flex
+         * measures its MAX-CONTENT width — the whole sentence on one line, some
+         * 450px — to decide whether it fits beside the icon. It does not, and
+         * `flex-wrap: wrap` puts it on a line of its own rather than shrinking it
+         * first; only then does it wrap internally. So the short strings
+         * ("Editing this layer") sat beside the icon and the long ones
+         * ("Nothing selected — a new image will be created from your text")
+         * dropped below it, which read as two unrelated elements.
+         *
+         * A basis of 0 makes the hypothetical size 0, so it always fits on the
+         * line, and `flex-grow: 1` then hands it the rest of the row to wrap
+         * inside — every line of the sentence indented past the icon.
+         */
+        flex: 1 1 0;
+        font-family: "Inter";
+        font-weight: 500;
+        font-size: 13px;
+        letter-spacing: 0.16px;
+        /* The 16px icon box against a 13px/1.4 first line: nudged so the glyph
+           centres on the cap height rather than the top of the line box. */
+        line-height: 18px;
+    }
 
-        .text {
-            cursor: pointer;
-            color: $light-color-option-active;
-            font-family: "Inter";
-            font-weight: 500;
-            font-size: 13px;
-            letter-spacing: 0.16px;
-        }
+    // Names which layer is being used when several are selected. Secondary to the
+    // state line, but it has to stay readable — it is the only place the plugin
+    // admits it acts on one layer out of many.
+    .multi-note {
+        flex-basis: 100%;
+        font-family: "Inter";
+        font-weight: 400;
+        font-size: 11px;
+        letter-spacing: 0.16px;
     }
 }
 
+// The icons inherit their fill from `currentColor`, so setting the text colour
+// sets the icon too and the two can no longer drift apart. The success and
+// warning tokens both resolve to the brand pink #E543AA — see the rationale and
+// the measured ratios in _colors.scss. Keep going through the tokens rather than
+// hardcoding the hex back into the markup, which is how these two last drifted.
+//
+// Since both states are now the same hue, `.check-icon` versus `.danger-icon` is
+// the only thing distinguishing "image ready" from "wrong layer type" at a
+// glance. Do not swap either glyph for a shape that reads like the other one.
+.figma-light {
+    .imageselectionbanner-container {
+        .text { color: $light-color-option-active; }
+        .multi-note { color: $light-color-option-deactive; }
+
+        &.is-selected .check-icon { color: $light-color-success-text; }
+        &.is-empty .danger-icon,
+        &.is-wrong-type .danger-icon { color: $light-color-warning-text; }
+        // Accent, not amber and not grey: on Generate Image an empty selection is
+        // a valid deliberate mode, so warning about it teaches users to ignore the
+        // banner — but the deactive grey this used to carry read as a disabled
+        // control next to a panel whose every other icon is the product purple.
+        // Informational, and alive.
+        &.is-checking .info-icon,
+        &.is-mode .info-icon { color: $light-color-accent; }
+    }
+}
 
 .figma-dark {
-
     .imageselectionbanner-container {
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        width: 100%;
-        gap: 8px;
-        margin-top: 12px;
-        margin-bottom: 12px;
-        height: 32px;
+        .text { color: $dark-color-option-active; }
+        .multi-note { color: $dark-color-option-deactive; }
 
-        .danger-icon {
-            width: 20px;
-            height: 18px;
-        }
-
-        .check-icon {
-            width: 16px;
-            height: 16px;
-        }
-
-        .text {
-            cursor: pointer;
-            color: $dark-color-option-active;
-            font-family: "Inter";
-            font-weight: 500;
-            font-size: 13px;
-            letter-spacing: 0.16px;
-        }
+        &.is-selected .check-icon { color: $dark-color-success-text; }
+        &.is-empty .danger-icon,
+        &.is-wrong-type .danger-icon { color: $dark-color-warning-text; }
+        &.is-checking .info-icon,
+        &.is-mode .info-icon { color: $dark-color-accent; }
     }
 }
-
-

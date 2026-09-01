@@ -15,8 +15,15 @@ body {
 }
 
 #root {
+  /* border-box, so the height below needs no arithmetic against the padding.
+     `calc(100vh - 32px)` stood here, a mechanical translation of an older `92vh`,
+     and the 32 never matched the 24px of vertical padding it was meant to offset.
+     Under content-box that padding was added back, so #root measured 100vh - 8:
+     an 8px strip of every window the plugin had asked Figma for and could not
+     use. It cost the Upscale caption most of a line. */
+  box-sizing: border-box;
   padding: 8px 16px 16px 16px;
-  height: calc(100vh - 32px); 
+  height: 100vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -44,9 +51,59 @@ body {
   overflow-y: auto;
 }
 
+/* The primary action, pinned outside the scroller.
+ *
+ * It used to live inside `.scrollable-content`, where marking it `flex-shrink: 0`
+ * achieved nothing — a child of an `overflow-y: auto` box scrolls with the rest of it.
+ * On a short screen, where Figma clamps the height the panel asked for, the one
+ * control the panel exists for scrolled out of sight, and macOS keeps the scrollbar
+ * hidden until you scroll so nothing indicated it was down there.
+ *
+ * Above `.bottom-banner`, deliberately: the credits strip is context for the spend and
+ * the button is the spend, so the button is the last thing before it. Empty when a tab
+ * has no primary action, and `:empty` collapses the margin so there is no stray gap.
+ */
+.panel-footer {
+  flex-shrink: 0;
+  margin-top: 8px;
+
+  &:empty {
+    margin-top: 0;
+  }
+}
+
 .bottom-banner {
   flex-shrink: 0; /* Prevent the banner from shrinking */
   margin-top: 8px; /* Small gap between content and banner */
+}
+
+/* The receipt for a finished run: "Placed 2 candidates beside your layer."
+ *
+ * It lives here rather than in generateImage/styles.scss because PanelFooter
+ * portals it into `#panel-footer`, which is a sibling of the tab's own container
+ * — a rule scoped under `.generate-image-container` would never have matched it.
+ * That is how it came to have NO rule at all: the class was written into the
+ * markup and no stylesheet ever defined it, so it rendered at user-agent
+ * defaults. Measured before this rule existed: `color: rgb(0, 0, 0)` on the dark
+ * surface (nothing sets a colour on `body`, and the theme blocks only colour
+ * named descendants), 16px in a panel whose type scale tops out at 13px, and
+ * `margin: 16px 0` that grew `.panel-footer` from 30px to 98px — 68px taken
+ * straight out of the scroller, which is what sliced the preset chips in half
+ * after a successful run.
+ *
+ * Deliberately NOT `.success-text`: that token is the brand pink, which is
+ * already carrying a measured AA failure by decision (see _colors.scss), and
+ * this is a neutral statement of what happened rather than an alert. The
+ * option-active pair is the strongest-contrast text colour in each theme.
+ */
+.run-summary {
+  margin: 8px 0 0 0;
+  font-family: "Inter";
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.4;
+  letter-spacing: 0.16px;
+  text-align: center;
 }
 
 .flex-row {
@@ -83,24 +140,78 @@ body {
   margin-top: -100px;
 }
 
-.error-text {
+// Available to assistive technology, absent from the visual layout. Used for hints
+// that a sighted user reads from the control itself (the "tab" affordance on the
+// prompt field) but a screen reader user has no other way to learn.
+// clip-path over display:none deliberately — a hidden element is not announced.
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+// Layout is theme-independent; only the colours are not. Splitting them this way
+// keeps the geometry in one place while letting each theme carry a value that
+// actually passes AA on its own surface. These three classes previously sat
+// outside any theme scope, so one colour served both — and the API-key error and
+// success messages, which are the ones a user most needs to read, were the
+// casualties in the dark theme.
+.error-text,
+.warning-text,
+.success-text {
   font-size: $font-size-sm;
-  color: $color-error-text;
+  margin: -6px 6px;
+}
+
+.error-text {
   margin: -10px 6px;
   text-align: center;
 }
 
-.warning-text {
-  font-size: $font-size-sm;
-  color: $color-warning-text;
-  margin: -6px 6px;
+.success-text {
+  text-align: center;
 }
 
-.success-text {
-  font-size: $font-size-sm;
-  color: $color-success-text;
-  margin: -6px 6px;
-  text-align: center;
+.figma-light {
+  .run-summary {
+    color: $light-color-option-active;
+  }
+  .error-text {
+    color: $light-color-error-text;
+  }
+  .warning-text {
+    color: $light-color-warning-text;
+  }
+  .success-text {
+    color: $light-color-success-text;
+  }
+  .error-border {
+    border: 1px solid $light-color-error-border !important;
+  }
+}
+
+.figma-dark {
+  .run-summary {
+    color: $dark-color-option-active;
+  }
+  .error-text {
+    color: $dark-color-error-text;
+  }
+  .warning-text {
+    color: $dark-color-warning-text;
+  }
+  .success-text {
+    color: $dark-color-success-text;
+  }
+  .error-border {
+    border: 1px solid $dark-color-error-border !important;
+  }
 }
 
 .disabled-btn {
@@ -121,6 +232,4 @@ body {
   background: $color-selector-disabled-background !important;
 }
 
-.error-border {
-  border: 1px solid $color-error-border !important;
-}
+// .error-border's colour is set per theme above; only shared geometry lives here.
