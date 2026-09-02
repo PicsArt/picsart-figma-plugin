@@ -1,21 +1,42 @@
 import ImageProcessor from "@services/ImageProcessor";
 import type { BytesFailureReason } from "@app-types/messages";
 import AccountController from "../controllers/AccountController";
+import IntroController from "../controllers/IntroController";
 import SupportController from "../controllers/SupportController";
 import GenerateImageController from "../controllers/GenerateImageController";
 import openPanel from "../controllers/openPanel";
 import CustomSessionStorage from "./CustomSessionStorage";
 import { addUiMessageHandler, postToUi } from "./UiBridge";
-import { rememberBalance } from "./balance";
+import {
+  acknowledgeTerminalAuthState,
+  activeCredential,
+  cancelSignIn,
+  postCredential,
+  refreshCredentialNow,
+  signOut,
+  startSignIn,
+  submitAuthResponse,
+} from "./authSession";
+import { credentialIdentity } from "./credentialIdentity";
+import { deliverBalance, rememberBalance } from "./balance";
 import {
   TYPE_APPLY_IMAGE,
+  TYPE_AUTH_RESPONSE,
+  TYPE_CANCEL_SIGN_IN,
+  TYPE_REFRESH_CREDENTIAL,
+  TYPE_SIGN_IN,
+  TYPE_SIGN_OUT,
   TYPE_REQUEST_IMAGE_BYTES,
   TYPE_IMAGE_BYTES_RESULT,
   TYPE_PLACEMENT_DONE,
   TYPE_NOTIFY,
   API_KEY_NAME,
   KEY_SET,
+  KEY_SAVE_FAILED,
+  KEY_REMOVED,
+  KEY_REMOVE_FAILED,
   TYPE_SET_KEY,
+  TYPE_REMOVE_KEY,
   TYPE_CLOSE_PLUGIN,
   TYPE_GENERATED_IMAGES,
   TYPE_PLACE_EDITED_IMAGES,
@@ -26,7 +47,6 @@ import {
   TAB_ACCOUNT,
   TAB_SUPPORT,
   TAB_GENERATE_IMAGE,
-  TAB_SET_API_KEY,
   WIDGET_HEIGHT_WITH_KEY,
   WIDGET_HEIGHT_WITHOUT_KEY,
   WIDGET_HEIGHT_UPSCALE_WITH_KEY,
@@ -116,6 +136,34 @@ const finishPlacement = (
  * apply each result twice — two notifications, two canvas writes.
  */
 const handleUiMessage = async (figma: PluginAPI, response: IncomingMessage) => {
+    if (response.type === TYPE_SIGN_IN) {
+      await startSignIn(figma);
+      return;
+    }
+
+    if (response.type === TYPE_AUTH_RESPONSE) {
+      await submitAuthResponse(figma, asText(response.msg));
+      return;
+    }
+
+    if (response.type === TYPE_CANCEL_SIGN_IN) {
+      await cancelSignIn(figma);
+      return;
+    }
+
+    if (response.type === TYPE_SIGN_OUT) {
+      const active = await signOut(figma);
+      postCredential(figma, active);
+      if (!active.credential) await IntroController();
+      return;
+    }
+
+    if (response.type === TYPE_REFRESH_CREDENTIAL) {
+      const active = await refreshCredentialNow(figma);
+      postCredential(figma, active, response.requestId);
+      return;
+    }
+
     // Notifications carry failures as well as progress, so they must be handled
     // before the success gate below. Behind it, every error the UI tried to
     // report was dropped in silence.
@@ -219,24 +267,17 @@ const handleUiMessage = async (figma: PluginAPI, response: IncomingMessage) => {
         // UI session and queues until the new iframe reports ready, so there is
         // nothing left to wait out.
         try {
-          const apiKey = await figma.clientStorage.getAsync(API_KEY_NAME);
+          acknowledgeTerminalAuthState();
+
+          const hasCredential = !!(await activeCredential(figma)).credential;
 
           switch (response.tab) {
-            // These three have no controller of their own — they are the same panel
-            // at a different tab, so they go straight to openPanel.
             case TAB_UPSCALE:
               await openPanel({
                 tab: TAB_UPSCALE,
-                height: apiKey
+                height: hasCredential
                   ? WIDGET_HEIGHT_UPSCALE_WITH_KEY
                   : WIDGET_HEIGHT_UPSCALE_WITHOUT_KEY,
-              });
-              break;
-
-            case TAB_SET_API_KEY:
-              await openPanel({
-                tab: TAB_SET_API_KEY,
-                height: apiKey ? WIDGET_HEIGHT_WITH_KEY : WIDGET_HEIGHT_WITHOUT_KEY,
               });
               break;
 
@@ -260,7 +301,7 @@ const handleUiMessage = async (figma: PluginAPI, response: IncomingMessage) => {
             default:
               await openPanel({
                 tab: TAB_REMOVE_BACKGROUND,
-                height: apiKey ? WIDGET_HEIGHT_WITH_KEY : WIDGET_HEIGHT_WITHOUT_KEY,
+                height: hasCredential ? WIDGET_HEIGHT_WITH_KEY : WIDGET_HEIGHT_WITHOUT_KEY,
               });
           }
         } catch (error) {
@@ -272,26 +313,41 @@ const handleUiMessage = async (figma: PluginAPI, response: IncomingMessage) => {
       }
 
       if (response.type === TYPE_SET_KEY) {
-        figma.clientStorage.setAsync(API_KEY_NAME, response.msg).then(() => {
+        try {
+          await figma.clientStorage.setAsync(API_KEY_NAME, response.msg);
           figma.notify(KEY_SET);
-        });
-      }
-      if (response.type === TYPE_SET_BALANCE) {
-        // Through the shared guard, which the other two writers now use as well.
-        // A rejected value leaves the cache alone and the last known good number is
-        // echoed back, so the UI corrects itself instead of showing a poisoned one.
-        rememberBalance(response.msg);
-        postToUi(figma, {
-          type: TYPE_GET_BALANCE,
-          payload: CustomSessionStorage.getInstance().getBalance(),
-        });
+        } catch (error) {
+          console.error("Failed to store the API key:", error);
+          figma.notify(KEY_SAVE_FAILED, { error: true });
+        }
+        postCredential(figma, await activeCredential(figma));
       }
 
-      if (response.type === TYPE_GET_BALANCE) {
-        postToUi(figma, {
-          type: TYPE_GET_BALANCE,
-          payload: CustomSessionStorage.getInstance().getBalance(),
-        });
+      if (response.type === TYPE_REMOVE_KEY) {
+        try {
+          await figma.clientStorage.deleteAsync(API_KEY_NAME);
+          CustomSessionStorage.getInstance().reset();
+          figma.notify(KEY_REMOVED);
+
+          const active = await activeCredential(figma);
+          postCredential(figma, active);
+          if (!active.credential) await IntroController();
+        } catch (error) {
+          console.error("Failed to remove the API key:", error);
+          figma.notify(KEY_REMOVE_FAILED, { error: true });
+        }
+      }
+      if (response.type === TYPE_SET_BALANCE || response.type === TYPE_GET_BALANCE) {
+        const credential = (await activeCredential(figma)).credential;
+        const identity = credentialIdentity(credential ?? undefined);
+
+        if (response.type === TYPE_SET_BALANCE) {
+          if (rememberBalance(response.msg, identity)) {
+            CustomSessionStorage.getInstance().markWarm(identity);
+          }
+        }
+
+        void deliverBalance(figma, credential);
       }
     }
 };

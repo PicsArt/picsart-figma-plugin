@@ -19,7 +19,13 @@
       "https://aicdn.picsart.com",
       "https://picsart.io",
       "https://cdn.picsart.io",
-      "https://www.gravatar.com"
+      "https://www.gravatar.com",
+      "https://auth.picsart.com",
+      "https://accounts.picsart.com"
+    ],
+    "devAllowedDomains": [
+      "http://localhost:8080",
+      "https://api.picsart.com"
     ]
   },
   "menu": [
