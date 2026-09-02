@@ -54,6 +54,26 @@ module.exports = tseslint.config(
     },
   },
   {
-    ignores: ['dist', 'eslint.config.js', 'webpack.config.js'],
+    files: ['scripts/**/*.mjs'],
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+      parserOptions: { project: false },
+      globals: {
+        console: 'readonly',
+        process: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearInterval: 'readonly',
+        TextDecoder: 'readonly',
+        TextEncoder: 'readonly',
+        URL: 'readonly',
+        URLSearchParams: 'readonly',
+      },
+    },
+  },
+  {
+    ignores: ['dist', 'spike', 'eslint.config.js', 'webpack.config.js'],
   },
 )
