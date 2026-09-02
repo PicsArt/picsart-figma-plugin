@@ -80,7 +80,6 @@ export const GENERATE_IMAGE_NO_CREDITS_BTN_TEXT = "Add credits & Create image" a
 export const EDIT_IMAGE_BTN_TEXT = "Edit image" as const
 export const EDIT_IMAGE_NO_CREDITS_BTN_TEXT = "Add credits & Edit image" as const
 export const CONTINUE_BTN_TEXT = "Continue" as const 
-export const CHANGE_KEY_BTN_TEXT = "Change API Key" as const
 export const BUY_MORE_BTN_TEXT = "Buy more credits" as const 
 export const GET_NEW_KEY_BTN_TEXT = "Set new API key" as const
 export const SUBMIT_KEY_BTN_TEXT = "Submit" as const

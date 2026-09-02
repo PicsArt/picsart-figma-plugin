@@ -14,13 +14,13 @@
     align-items: center;
 }
 
-.figma-light {
+@mixin account-text($label-color, $credits-color) {
     .text {
         font-family: "Inter";
         font-weight: 500;
         font-size: 13px;
         letter-spacing: 0.16px;
-        color: $light-color-option-active;
+        color: $label-color;
     }
 
     .credits-text {
@@ -28,6 +28,14 @@
         font-weight: 700;
         font-size: 13px;
         letter-spacing: 0.16px;
-        color: $light-color-option-active;
+        color: $credits-color;
     }
+}
+
+.figma-light {
+    @include account-text($light-color-option-active, $light-color-option-active);
+}
+
+.figma-dark {
+    @include account-text($dark-color-option-active, $dark-color-option-active);
 }

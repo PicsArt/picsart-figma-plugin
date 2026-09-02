@@ -27,8 +27,6 @@ export const TYPE_APPLY_IMAGE = "apply-image" as const;
  */
 export const TYPE_PLACEMENT_DONE = "placement-done" as const;
 export const TYPE_ACTION = "action" as const;
-export const TYPE_ACCOUNT = "acount" as const;
-export const TYPE_KEY = "key" as const;
 export const TYPE_CREDENTIAL = "credential" as const;
 export const TYPE_AUTH_STATE = "auth-state" as const;
 export const TYPE_SIGN_IN = "sign-in" as const;
@@ -77,8 +75,6 @@ const TYPES = {
   TYPE_SIGN_OUT,
   TYPE_REFRESH_CREDENTIAL,
   TYPE_ACTION,
-  TYPE_KEY,
-  TYPE_ACCOUNT,
   TYPE_NOTIFY,
   TYPE_IMAGE_SELECTED,
   TYPE_REQUEST_IMAGE_BYTES,

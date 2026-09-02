@@ -1,31 +1,14 @@
-import { GENAIURL, HEADERAPI, HEADER_PLUGIN_NAME_KEY, HEADER_PLUGIN_NAME_VALUE } from "@constants/index";
-import { customFetch } from "./customFetch";
-import { describeApiFailure, isAbortError, isTokenError, readApiText, readJsonBody } from "./apiError";
-
-/**
- * The one polling loop, shared by text-to-image and image-to-image.
- *
- * It used to live inline in `GenerateImage.tsx` as a `setTimeout` chain guarded by a
- * closure boolean, and adding a second async endpoint would have produced a second
- * copy of it. Extracting it is half of what the chosen approach was justified by.
- *
- * Three things the inline version got wrong and this does not:
- *
- * - **Cancellation cancels the fetch**, through an `AbortSignal`, rather than setting
- *   a flag that ignores the answer. The old loop's closure outlived unmount, so the
- *   network calls carried on and `setLoading` fired on a component that was gone.
- * - **The window backs off** instead of being a flat 30 × 2000ms. A hard 60-second
- *   ceiling on a job that is billed at acceptance means a slow job is paid for and
- *   then abandoned.
- * - **An unrecognised status keeps polling.** A vocabulary change on the server side
- *   must not turn a finished generation into a failure.
- *
- * What it deliberately does NOT do is persist the inference id. `clientStorage` is
- * sandbox-only and keyed per user and plugin rather than per file, so a persisted id
- * from another document would be polled on reopen and its result placed in the wrong
- * file. Scoping that correctly needs a file key and a TTL; it is recorded in
- * `TODOS.md` rather than half-built here.
- */
+import { GENAIURL } from "@constants/index";
+import type { CredentialDescriptor, CredentialInput } from "@app-types/credential";
+import { asCredential, customFetch } from "./customFetch";
+import {
+  describeApiFailure,
+  isAbortError,
+  isRefreshableTokenFailure,
+  isTokenError,
+  readApiText,
+  readJsonBody,
+} from "./apiError";
 
 // Lowercase, and matched case-insensitively: this endpoint family answers
 // "processing"/"success" today and answered "FINISHED"/"DONE" in an earlier revision.
@@ -90,15 +73,47 @@ const collectUrls = (body: InferenceBody | null): string[] => {
     .filter((url): url is string => typeof url === "string" && !!url);
 };
 
+export type CredentialSource =
+  | CredentialInput
+  | (() => CredentialInput | Promise<CredentialInput>);
+
+export type RefreshCredential = () => Promise<boolean>;
+
 export interface PollOptions {
   /** Candidate poll paths, tried in order until one does not 404. */
   paths: readonly string[];
   inferenceId: string;
-  key: string;
+  credential: CredentialSource;
+  refresh?: RefreshCredential;
   transient: string;
   rejected: string;
   signal?: AbortSignal;
 }
+
+const resolveCredential = async (
+  source: CredentialSource
+): Promise<CredentialDescriptor> =>
+  asCredential(typeof source === "function" ? await source() : source);
+
+const inFlightRefresh = new WeakMap<RefreshCredential, Promise<boolean>>();
+
+const refreshOnce = (refresh: RefreshCredential): Promise<boolean> => {
+  const existing = inFlightRefresh.get(refresh);
+  if (existing) return existing;
+
+  const attempt = refresh()
+    .catch((error) => {
+      console.error("Credential refresh threw during polling:", error);
+      return false;
+    })
+    .then((ok) => {
+      inFlightRefresh.delete(refresh);
+      return ok;
+    });
+
+  inFlightRefresh.set(refresh, attempt);
+  return attempt;
+};
 
 /**
  * Which candidate path answered, remembered for the rest of the session.
@@ -113,43 +128,58 @@ const resolvedPaths = new Map<string, string>();
 const pollOnce = async (
   options: PollOptions
 ): Promise<{ ok: true; body: InferenceBody | null } | { ok: false; msg: string; retryPath?: true }> => {
-  const { paths, inferenceId, key, transient, rejected, signal } = options;
+  const { paths, inferenceId, transient, rejected, signal, refresh } = options;
   const cacheKey = paths.join("|");
   const candidates = resolvedPaths.has(cacheKey)
     ? [resolvedPaths.get(cacheKey) as string]
     : paths;
 
   let lastFailure = { ok: false as const, msg: transient };
+  let refreshAttempted = false;
 
   for (const path of candidates) {
-    const response = await customFetch(`${GENAIURL}${path}${inferenceId}`, {
-      method: "GET",
-      headers: {
-        [HEADERAPI]: key,
-        [HEADER_PLUGIN_NAME_KEY]: HEADER_PLUGIN_NAME_VALUE,
-      },
-      signal,
-    });
+    for (;;) {
+      const credential = await resolveCredential(options.credential);
 
-    const body = (await readJsonBody(response)) as InferenceBody | null;
+      const response = await customFetch(`${GENAIURL}${path}${inferenceId}`, {
+        method: "GET",
+        credential,
+        signal,
+      });
 
-    if (response.status === 404 && candidates.length > 1) {
-      // Could be a wrong path or an unknown job; either way the next candidate is
-      // worth one GET, and a poll is not a billed call.
-      console.warn(`Poll path ${path} answered 404; trying the next candidate.`);
-      lastFailure = { ok: false as const, msg: transient };
-      continue;
+      const body = (await readJsonBody(response)) as InferenceBody | null;
+
+      if (response.status === 404 && candidates.length > 1) {
+        console.warn(`Poll path ${path} answered 404; trying the next candidate.`);
+        lastFailure = { ok: false as const, msg: transient };
+        break;
+      }
+
+      if (!response.ok || isTokenError(response.status, body)) {
+        const failure = describeApiFailure({
+          status: response.status,
+          body,
+          rejected,
+          transient,
+          credential,
+        });
+
+        if (
+          refresh &&
+          !refreshAttempted &&
+          failure.tokenFailure &&
+          isRefreshableTokenFailure(failure.tokenFailure)
+        ) {
+          refreshAttempted = true;
+          if (await refreshOnce(refresh)) continue;
+        }
+
+        return { ok: false, msg: failure.msg };
+      }
+
+      resolvedPaths.set(cacheKey, path);
+      return { ok: true, body };
     }
-
-    if (!response.ok || isTokenError(response.status, body)) {
-      return {
-        ok: false,
-        msg: describeApiFailure({ status: response.status, body, rejected, transient }).msg,
-      };
-    }
-
-    resolvedPaths.set(cacheKey, path);
-    return { ok: true, body };
   }
 
   return lastFailure;

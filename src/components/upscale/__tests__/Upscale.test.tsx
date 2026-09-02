@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   takeImage: vi.fn(),
   applyImageToCanvas: vi.fn(),
   refreshBalance: vi.fn(),
+  requestCredentialRefresh: vi.fn(),
   selection: { current: { kind: "unknown" } as SelectionState },
   descriptor: { current: null as SelectionDescriptor | null },
 }));
@@ -45,7 +46,13 @@ vi.mock("@utils/placement", () => ({
 
 vi.mock("@hooks/usePluginHeight", () => ({ default: () => undefined }));
 
+vi.mock("@utils/credentialBridge", () => ({
+  requestCredentialRefresh: mocks.requestCredentialRefresh,
+}));
+
 import Upscale from "../Upscale";
+import { CredentialProvider, useCredential } from "../../../context/CredentialContext";
+import type { CredentialDescriptor } from "@app-types/credential";
 
 const KEY = "test-api-key";
 const bytes = () => new Uint8Array([1, 2, 3, 4]);
@@ -260,5 +267,120 @@ describe("Upscale — the credit balance is re-read, not taken from the header",
     await press();
 
     expect(mocks.refreshBalance).not.toHaveBeenCalled();
+  });
+});
+
+describe("Upscale — a session that expired while the panel was open", () => {
+  const DEAD: CredentialDescriptor = {
+    kind: "oauth",
+    token: "dead",
+    scopes: ["workflows.execute"],
+    expiresAt: Date.now() - 1000,
+  };
+  const FRESH: CredentialDescriptor = {
+    kind: "oauth",
+    token: "fresh",
+    scopes: ["workflows.execute"],
+    expiresAt: Date.now() + 3_599_000,
+  };
+
+  const expired = {
+    success: false as const,
+    msg: "Your Picsart sign-in expired. Sign in again to carry on — nothing was charged.",
+    retryable: true,
+    tokenFailure: "session-expired" as const,
+  };
+
+  const Seed: React.FC<{ credential: CredentialDescriptor }> = ({ credential }) => {
+    const { setActive } = useCredential();
+    React.useEffect(() => setActive(credential, ""), [credential, setActive]);
+    return null;
+  };
+
+  const mount = (credential: CredentialDescriptor) =>
+    render(
+      <CredentialProvider>
+        <Seed credential={credential} />
+        <Upscale gottenKey={credential} isCreditsInsufficient={false} isOffline={false} />
+      </CredentialProvider>
+    );
+
+  beforeEach(() => {
+    cleanup();
+    mocks.enhanceImage.mockReset();
+    mocks.sendMessageToSandBox.mockReset();
+    mocks.takeImage.mockReset();
+    mocks.applyImageToCanvas.mockReset();
+    mocks.refreshBalance.mockReset();
+    mocks.refreshBalance.mockResolvedValue(undefined);
+    mocks.requestCredentialRefresh.mockReset();
+    mocks.selection.current = { kind: "image", descriptor };
+    mocks.descriptor.current = null;
+    mocks.takeImage.mockResolvedValue({
+      ok: true,
+      nodeId: descriptor.nodeId,
+      bytes: bytes(),
+      width: descriptor.width,
+      height: descriptor.height,
+    });
+    mocks.applyImageToCanvas.mockResolvedValue({ ok: true, message: "done" });
+  });
+
+  it("refreshes and retries instead of charging the user a failure", async () => {
+    mocks.requestCredentialRefresh.mockResolvedValue(FRESH);
+    mocks.enhanceImage
+      .mockResolvedValueOnce(expired)
+      .mockResolvedValueOnce({ success: true, msg: bytes(), updatedCredits: 861 });
+
+    mount(DEAD);
+    await press();
+
+    expect(mocks.enhanceImage).toHaveBeenCalledTimes(2);
+    expect(mocks.enhanceImage.mock.calls[0][1]).toBe(DEAD);
+    expect(mocks.enhanceImage.mock.calls[1][1]).toBe(FRESH);
+    expect(mocks.applyImageToCanvas).toHaveBeenCalledTimes(1);
+    expect(notifications().filter((call) => call[0] === false)).toHaveLength(0);
+  });
+
+  it("re-reads the balance with the live credential, not the one it rendered with", async () => {
+    mocks.requestCredentialRefresh.mockResolvedValue(FRESH);
+    mocks.enhanceImage
+      .mockResolvedValueOnce(expired)
+      .mockResolvedValueOnce({ success: true, msg: bytes(), updatedCredits: 861 });
+
+    mount(DEAD);
+    await press();
+
+    expect(mocks.refreshBalance).toHaveBeenCalledWith(FRESH);
+  });
+
+  it("reports the expiry rather than looping when the session is really over", async () => {
+    mocks.requestCredentialRefresh.mockResolvedValue(null);
+    mocks.enhanceImage.mockResolvedValue(expired);
+
+    mount(DEAD);
+    await press();
+
+    expect(mocks.enhanceImage).toHaveBeenCalledTimes(1);
+    const failure = notifications().filter((call) => call[0] === false);
+    expect(failure).toHaveLength(1);
+    expect(failure[0][1]).toBe(expired.msg);
+    expect(mocks.applyImageToCanvas).not.toHaveBeenCalled();
+  });
+
+  it("does not retry a rejected API key", async () => {
+    mocks.requestCredentialRefresh.mockResolvedValue({ kind: "apikey", token: KEY });
+    mocks.enhanceImage.mockResolvedValue({
+      success: false,
+      msg: "That API key was rejected.",
+      retryable: false,
+      tokenFailure: "wrong-key",
+    });
+
+    render(<Upscale gottenKey={KEY} isCreditsInsufficient={false} isOffline={false} />);
+    await press();
+
+    expect(mocks.enhanceImage).toHaveBeenCalledTimes(1);
+    expect(mocks.requestCredentialRefresh).not.toHaveBeenCalled();
   });
 });

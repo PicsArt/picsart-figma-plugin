@@ -1,16 +1,17 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { BalanceProvider, useBalance } from "./context/BalanceContext";
 import { ActiveProvider, useActive } from "./context/ActiveContext";
 import { SelectionProvider } from "./context/SelectionContext";
+import { CredentialProvider, useCredential } from "./context/CredentialContext";
 import {
   Navbar,
   Account,
   BalanceBanner,
-  ChangeAPIkey,
   IntroPage,
   RemoveBackground,
   RemoveBackgroundHidden,
+  SignIn,
   Support,
   Upscale,
   GenerateImage,
@@ -19,17 +20,40 @@ import {
 } from "@components/index";
 import useOffline from "@hooks/useOffline";
 import { TabType } from "@app-types/enums";
+import type { AuthState, CredentialMessage } from "@app-types/auth";
 import {
-  TYPE_ACCOUNT,
   TYPE_ACTION,
+  TYPE_AUTH_STATE,
+  TYPE_CREDENTIAL,
   TYPE_GET_BALANCE,
-  TYPE_KEY,
+  TYPE_EXCHANGE_REQUEST,
+  TYPE_LOAD_EXCHANGE_PAGE,
+  TYPE_RANDOM_RESULT,
+  TYPE_REQUEST_RANDOM,
+  TYPE_SWITCH_TAB,
   TYPE_TAB,
   TYPE_UI_READY,
   TYPE_VALIDATE_KEY,
 } from "@constants/types";
+import { PRICING } from "@constants/url";
 import "@styles/global.scss";
 import { getBalance, sendMessageToSandBox } from "./api";
+import { requestSignIn } from "@utils/credentialBridge";
+import { supplyRandomBytes } from "@utils/entropy";
+import {
+  forwardFromExchangePage,
+  isExchangePageMessage,
+  loadExchangePage,
+  requestExchange,
+} from "@utils/exchangeFrame";
+
+export const isOwnFrame = (source: MessageEvent["source"]): boolean => {
+  if (!source) return false;
+  for (let i = 0; i < window.frames.length; i++) {
+    if ((window.frames[i] as unknown) === (source as unknown)) return true;
+  }
+  return false;
+};
 
 // Exported for the layout-structure test. jsdom has no layout engine, so nothing
 // here can assert a height — but which side of `.scrollable-content` an element
@@ -40,22 +64,62 @@ export const App = () => {
   // menu, the navbar order, IntroController's landing tab for a keyless user, and
   // this initial state. A partial promotion reads as a bug rather than a decision.
   const [tab, setTab] = useState<TabType>(TabType.GENERATE_IMAGE);
-  const { setBalance } = useBalance();
-  const [apiKey, setApiKey] = useState<string>("");
+  const { setBalance, balance } = useBalance();
+  const { credential, apiKey, setActive } = useCredential();
+  const [authState, setAuthState] = useState<AuthState>({ status: "idle" });
   const [isCreditsInsufficient, setIsCreditsInsufficient] =
     useState<boolean>(false);
+  const [balanceKnown, setBalanceKnown] = useState<boolean>(false);
   const isOffline = useOffline();
 
-  const handleTabChange = (selectedTab: TabType) => {
-    if (selectedTab === TabType.ACCOUNT) {
-      sendMessageToSandBox(
-        true,
-        "change height for account page",
-        TYPE_ACCOUNT
-      );
+  const [initiated, setInitiated] = useState<boolean>(false);
+  const openedRef = useRef<string | undefined>(undefined);
+  const [justSignedIn, setJustSignedIn] = useState<boolean>(false);
+  const previousStatus = useRef<AuthState["status"]>("idle");
+
+  useEffect(() => {
+    const wasInFlight =
+      previousStatus.current === "starting" ||
+      previousStatus.current === "awaiting" ||
+      previousStatus.current === "working";
+
+    if (wasInFlight && authState.status === "signedIn") setJustSignedIn(true);
+    if (authState.status === "idle") setInitiated(false);
+
+    previousStatus.current = authState.status;
+  }, [authState]);
+
+  const startSignIn = () => {
+    setInitiated(true);
+    const armed = authState.status === "armed" ? authState.authorizeUrl : undefined;
+    if (armed) {
+      openedRef.current = armed;
+      window.open(armed, "_blank", "noopener,noreferrer");
     }
-    setTab(selectedTab);
+    requestSignIn();
   };
+
+  useEffect(() => {
+    if (!initiated) return;
+    if (authState.status !== "awaiting") return;
+    if (openedRef.current === authState.authorizeUrl) return;
+    openedRef.current = authState.authorizeUrl;
+    window.open(authState.authorizeUrl, "_blank", "noopener,noreferrer");
+  }, [initiated, authState]);
+
+  const leaveSignIn = (destination: TabType = tab) => {
+    setJustSignedIn(false);
+    setInitiated(false);
+    sendMessageToSandBox(true, "", TYPE_SWITCH_TAB, undefined, { tab: destination });
+  };
+
+  const showConfirmation = justSignedIn && authState.status === "signedIn";
+  const flowInFlight =
+    authState.status === "starting" ||
+    authState.status === "awaiting" ||
+    authState.status === "working";
+  const flowFailed = authState.status === "denied" || authState.status === "failed";
+  const signInOwnsPanel = flowInFlight || flowFailed || showConfirmation;
 
   // Renders the current tab. This used to be a `page` state variable holding a
   // JSX element, rebuilt by a useEffect with seven dependencies — so every
@@ -63,13 +127,14 @@ export const App = () => {
   // dependency meant a panel rendering with stale props. A plain function called
   // during render cannot go stale.
   const renderPage = () => {
+    const active = credential!;
     switch (tab) {
       case TabType.TAB_REMOVE_BACKGROUND_INSTANTLY:
-        return <RemoveBackgroundHidden gottenKey={apiKey} />;
+        return <RemoveBackgroundHidden gottenKey={active} />;
       case TabType.REMOVE_BACKGROUND:
         return (
           <RemoveBackground
-            gottenKey={apiKey}
+            gottenKey={active}
             isCreditsInsufficient={isCreditsInsufficient}
             isOffline={isOffline}
           />
@@ -77,7 +142,7 @@ export const App = () => {
       case TabType.UPSCALE:
         return (
           <Upscale
-            gottenKey={apiKey}
+            gottenKey={active}
             isCreditsInsufficient={isCreditsInsufficient}
             isOffline={isOffline}
           />
@@ -85,7 +150,7 @@ export const App = () => {
       case TabType.GENERATE_IMAGE:
         return (
           <GenerateImage
-            gottenKey={apiKey}
+            gottenKey={active}
             isCreditsInsufficient={isCreditsInsufficient}
             isOffline={isOffline}
           />
@@ -94,40 +159,71 @@ export const App = () => {
         return (
           <Account
             setIsCreditsInsufficient={setIsCreditsInsufficient}
-            gottenKey={apiKey}
-            changeTab={handleTabChange}
+            credential={active}
+            apiKey={apiKey}
+            onSignIn={startSignIn}
+            changeKey={(key) => {
+              if (credential?.kind !== "oauth") setActive({ kind: "apikey", token: key }, key);
+            }}
           />
         );
       case TabType.SUPPORT:
         return <Support />;
-      case TabType.SET_API_KEY:
-        return <ChangeAPIkey changeKey={setApiKey} />;
       default:
         return null;
     }
   };
 
   useEffect(() => {
-    const messageHandler = async ({
-      data: { pluginMessage },
-    }: MessageEvent) => {
+    const messageHandler = async (event: MessageEvent) => {
+      if (isExchangePageMessage(event.data)) {
+        forwardFromExchangePage(event);
+        return;
+      }
+
+      if (isOwnFrame(event.source)) return;
+
+      const { pluginMessage } = event.data ?? {};
       if (!pluginMessage) return;
       const { type, payload } = pluginMessage;
 
-      if (type === TYPE_KEY) {
-        setApiKey(payload);
+      if (type === TYPE_CREDENTIAL) {
+        if ((pluginMessage as CredentialMessage).requestId) return;
+        const next = payload as CredentialMessage["payload"];
+        setActive(next?.credential ?? null, next?.apiKey ?? "");
         setIsActive(() => true);
+        setBalanceKnown(false);
         sendMessageToSandBox(true, "", TYPE_GET_BALANCE);
-      } 
+      }
+      else if (type === TYPE_REQUEST_RANDOM) {
+        const { requestId, length } = pluginMessage;
+        const { bytes, reason } = supplyRandomBytes(length);
+        sendMessageToSandBox(true, "", TYPE_RANDOM_RESULT, undefined, {
+          requestId,
+          bytes,
+          reason,
+        });
+      }
+      else if (type === TYPE_LOAD_EXCHANGE_PAGE) {
+        loadExchangePage(String(pluginMessage.url));
+      }
+      else if (type === TYPE_EXCHANGE_REQUEST) {
+        const { nonce, code, verifier } = pluginMessage;
+        requestExchange(nonce, code, verifier);
+      }
+      else if (type === TYPE_AUTH_STATE) {
+        setAuthState(payload as AuthState);
+        setIsActive(() => true);
+      }
       else if (type === TYPE_VALIDATE_KEY) {
         const res = await getBalance(payload);
-        if (res.success && res.msg !== 0) {
+        if (res.success) {
           setIsActive(() => true);
           sendMessageToSandBox(true, "", TYPE_VALIDATE_KEY);
         } else {
           sendMessageToSandBox(false, "", TYPE_VALIDATE_KEY);
         }
-      } 
+      }
       else if (type === TYPE_ACTION) {
         // TYPE_ACTION was previously stored in an `action` state variable whose
         // only consumer was the page-rebuilding effect's dependency array. Nothing
@@ -139,6 +235,7 @@ export const App = () => {
       } else if (type === TYPE_GET_BALANCE) {
         setIsActive(() => true);
         setBalance(payload);
+        setBalanceKnown(true);
         setIsCreditsInsufficient(payload <= 0);
       }
     };
@@ -155,35 +252,47 @@ export const App = () => {
     };
   }, []);
 
+  const signInScreen = (
+    <SignIn
+      authState={authState}
+      showConfirmation={showConfirmation}
+      hasApiKey={!!apiKey}
+      hasCredential={!!credential}
+      balance={balance}
+      balanceKnown={balanceKnown}
+      onDone={() => leaveSignIn()}
+      onRetry={startSignIn}
+      onUseApiKey={() => leaveSignIn(TabType.ACCOUNT)}
+      onAddCredits={() => window.open(PRICING, "_blank")}
+    />
+  );
+
   return (
     <div className="main-content">
-      {/* OUTSIDE the scroller, like `.panel-footer` below and for the same reason.
-          Inside it the tab row was a flex item with the default `flex-shrink: 1`,
-          so it did two bad things in sequence: squashed from 32px to 14px,
-          silently swallowing the first 18px of any overflow before anything
-          looked wrong, and then scrolled away entirely once the user scrolled to
-          reach a control — leaving a panel with no visible way back to a tab. */}
-      {apiKey && <Navbar gottenKey={apiKey} tab={tab} />}
+      {credential && <Navbar gottenKey={credential} tab={tab} />}
       <div className="scrollable-content">
-        {apiKey && renderPage()}
-        {!apiKey && <IntroPage />}
+        {signInOwnsPanel
+          ? signInScreen
+          : credential
+            ? renderPage()
+            : <IntroPage onSignIn={startSignIn} />}
       </div>
       {/* The primary action's home, OUTSIDE the scroller and above the credits strip.
           Each tab portals its own button in here through PanelFooter, so the button
           keeps the per-tab state that decides its label and whether it is enabled,
           while its position stops depending on how tall the panel's content is. A
           `flex-shrink: 0` inside `.scrollable-content` pinned nothing. */}
-      {apiKey && <div id={PANEL_FOOTER_ID} className="panel-footer" />}
+      {credential && !signInOwnsPanel && <div id={PANEL_FOOTER_ID} className="panel-footer" />}
       {isOffline && (
         <div className="bottom-banner">
           <OfflineBanner />
         </div>
       )}
-      {apiKey && (
+      {credential && !signInOwnsPanel && (
         <div className="bottom-banner">
           {(tab === TabType.REMOVE_BACKGROUND || tab === TabType.UPSCALE || tab === TabType.GENERATE_IMAGE) && (
             <BalanceBanner
-              gottenKey={apiKey}
+              gottenKey={credential}
               isCreditsInsufficient={isCreditsInsufficient}
               setIsCreditsInsufficient={setIsCreditsInsufficient}
             />
@@ -200,9 +309,11 @@ if (rootElement) {
   root.render(
     <ActiveProvider>
       <BalanceProvider>
-        <SelectionProvider>
-          <App />
-        </SelectionProvider>
+        <CredentialProvider>
+          <SelectionProvider>
+            <App />
+          </SelectionProvider>
+        </CredentialProvider>
       </BalanceProvider>
     </ActiveProvider>
   );
