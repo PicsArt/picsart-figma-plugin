@@ -26,17 +26,22 @@ export const TYPE_APPLY_IMAGE = "apply-image" as const;
  * flows that depend on it wait for the ack rather than for luck.
  */
 export const TYPE_PLACEMENT_DONE = "placement-done" as const;
-export const TYPE_COMMAND = "command" as const;
 export const TYPE_ACTION = "action" as const;
 export const TYPE_ACCOUNT = "acount" as const;
 export const TYPE_KEY = "key" as const;
+export const TYPE_CREDENTIAL = "credential" as const;
+export const TYPE_AUTH_STATE = "auth-state" as const;
+export const TYPE_SIGN_IN = "sign-in" as const;
+export const TYPE_AUTH_RESPONSE = "auth-response" as const;
+export const TYPE_CANCEL_SIGN_IN = "cancel-sign-in" as const;
+export const TYPE_SIGN_OUT = "sign-out" as const;
+export const TYPE_REFRESH_CREDENTIAL = "refresh-credential" as const;
 export const TYPE_NOTIFY = "notify" as const;
 export const TYPE_TAB = "tab" as const;
-export const TYPE_SET_KEY = "setkey" as const;
-export const TYPE_INSTANTLY_REMOVE = "instantly remove background" as const;
+export const TYPE_SET_KEY = "setkey" as const
+export const TYPE_REMOVE_KEY = "remove-key" as const;
 export const TYPE_VALIDATE_KEY = "validate-key" as const;
 export const TYPE_CLOSE_PLUGIN = "validateclose-plugin" as const;
-export const TYPE_TEXT_TO_IMAGE_TAB = "text-to-image-tab" as const;
 export const TYPE_GENERATED_IMAGES = "generated-images" as const;
 /**
  * UI -> sandbox: place edit-mode candidates beside the layer they came from.
@@ -55,10 +60,25 @@ export const TYPE_RESIZE = "resize" as const;
 // how long the iframe needs before postMessage will be heard.
 export const TYPE_UI_READY = "ui-ready" as const;
 
+export const TYPE_REQUEST_RANDOM = "request-random" as const;
+export const TYPE_RANDOM_RESULT = "random-result" as const;
+
+export const TYPE_LOAD_EXCHANGE_PAGE = "load-exchange-page" as const;
+export const TYPE_EXCHANGE_PAGE_READY = "exchange-page-ready" as const;
+export const TYPE_EXCHANGE_REQUEST = "exchange-request" as const;
+export const TYPE_EXCHANGE_RESULT = "exchange-result" as const;
+
 const TYPES = {
-  TYPE_COMMAND,
-  TYPE_KEY,
+  TYPE_CREDENTIAL,
+  TYPE_AUTH_STATE,
+  TYPE_SIGN_IN,
+  TYPE_AUTH_RESPONSE,
+  TYPE_CANCEL_SIGN_IN,
+  TYPE_SIGN_OUT,
+  TYPE_REFRESH_CREDENTIAL,
   TYPE_ACTION,
+  TYPE_KEY,
+  TYPE_ACCOUNT,
   TYPE_NOTIFY,
   TYPE_IMAGE_SELECTED,
   TYPE_REQUEST_IMAGE_BYTES,
@@ -66,11 +86,10 @@ const TYPES = {
   TYPE_APPLY_IMAGE,
   TYPE_PLACEMENT_DONE,
   TYPE_TAB,
-  TYPE_ACCOUNT,
-  TYPE_INSTANTLY_REMOVE,
+  TYPE_SET_KEY,
+  TYPE_REMOVE_KEY,
   TYPE_VALIDATE_KEY,
   TYPE_CLOSE_PLUGIN,
-  TYPE_TEXT_TO_IMAGE_TAB,
   TYPE_GENERATED_IMAGES,
   TYPE_PLACE_EDITED_IMAGES,
   TYPE_SWITCH_TAB,
@@ -78,6 +97,12 @@ const TYPES = {
   TYPE_GET_BALANCE,
   TYPE_RESIZE,
   TYPE_UI_READY,
+  TYPE_REQUEST_RANDOM,
+  TYPE_RANDOM_RESULT,
+  TYPE_LOAD_EXCHANGE_PAGE,
+  TYPE_EXCHANGE_PAGE_READY,
+  TYPE_EXCHANGE_REQUEST,
+  TYPE_EXCHANGE_RESULT,
 };
 
 export default TYPES;

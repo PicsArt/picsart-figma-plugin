@@ -80,8 +80,41 @@ export const GENERATE_IMAGE_NO_CREDITS_BTN_TEXT = "Add credits & Create image" a
 export const EDIT_IMAGE_BTN_TEXT = "Edit image" as const
 export const EDIT_IMAGE_NO_CREDITS_BTN_TEXT = "Add credits & Edit image" as const
 export const CONTINUE_BTN_TEXT = "Continue" as const 
-export const CHANGE_KEY_BTN_TEXT = "Change API Key" as const 
+export const CHANGE_KEY_BTN_TEXT = "Change API Key" as const
 export const BUY_MORE_BTN_TEXT = "Buy more credits" as const 
-export const GET_NEW_KEY_BTN_TEXT = "Set new API key" as const 
-export const SUBMIT_KEY_BTN_TEXT = "Submit" as const 
-export const ADD_CREDITS_BTN_TEXT = "Add Credits" as const 
+export const GET_NEW_KEY_BTN_TEXT = "Set new API key" as const
+export const SUBMIT_KEY_BTN_TEXT = "Submit" as const
+export const REMOVE_KEY_BTN_TEXT = "Remove API key" as const
+export const ADD_CREDITS_BTN_TEXT = "Add Credits" as const
+
+export const SIGN_IN_BTN_TEXT = "Sign in with Picsart" as const
+export const SIGN_IN_RETRY_BTN_TEXT = "Try signing in again" as const
+export const SIGN_OUT_BTN_TEXT = "Sign out of Picsart" as const
+export const CANCEL_BTN_TEXT = "Cancel" as const
+export const USE_API_KEY_BTN_TEXT = "Use an API key instead" as const
+export const REOPEN_BROWSER_BTN_TEXT = "Open the sign-in page again" as const
+
+export const SIGN_IN_CHOOSER_LEAD =
+  "Sign in with the Picsart account you already have. Your account's credits pay for each job — no console, no API key, no card." as const
+export const SIGN_IN_CHOOSER_KEY_LEAD = "Or use a developer API key:" as const
+export const SIGN_IN_AWAITING_LEAD =
+  "A Picsart sign-in page has opened in your browser. Approve it there, then come back here." as const
+export const SIGN_IN_PASTE_LEAD =
+  "Paste the address your browser ended up on, or just the code it shows:" as const
+export const SIGN_IN_PASTE_PLACEHOLDER = "Paste the address or code" as const
+export const SIGN_IN_POLLING_LEAD = "Waiting for Picsart to confirm…" as const
+export const SIGN_IN_CONFIRMED_LEAD = "You're signed in with your Picsart account." as const
+export const signedInAs = (name: string) => `Signed in as ${name}.`
+export const SIGN_IN_CONFIRMED_CREDITS =
+  "Jobs are paid for from this account's credit balance." as const
+export const SIGN_IN_ZERO_CREDITS_LEAD =
+  "You're signed in, but this account has no credits left, so nothing can run yet." as const
+
+export const ACCOUNT_MODE_OAUTH = "Picsart account" as const
+export const ACCOUNT_MODE_API_KEY = "API key" as const
+export const ACCOUNT_MODE_LABEL = "Signed in with" as const
+export const ACCOUNT_KEY_RETAINED =
+  "An API key is saved as well. Signing out switches to it, and credits then come from that key's balance." as const
+
+export const balanceModeLabel = (mode: "oauth" | "apikey") =>
+  `Balance · ${mode === "oauth" ? ACCOUNT_MODE_OAUTH : ACCOUNT_MODE_API_KEY}` 
