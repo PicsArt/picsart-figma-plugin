@@ -1,12 +1,9 @@
-import { BALANACE, TYPE_SET_BALANCE, HEADERAPI, PICSARTURL, GENAIURL, UPSCALE, GENERATEIMAGE, EDITIMAGE, EDIT_MODE_ASYNC, KEY_WRONG_ERR, REMOVEBG, REMOVEBG_SHADOW_DISABLED, REMOVEBG_SHADOW_CUSTOM, REMOVE_BG_FAILED_ERR, REMOVE_BG_REJECTED_ERR, UPSCALE_FAILED_ERR, UPSCALE_REJECTED_ERR, GENERATE_IMAGE_FAILED_ERR, GENERATE_IMAGE_REJECTED_ERR, EDIT_IMAGE_FAILED_ERR, EDIT_IMAGE_REJECTED_ERR, UNSUPPORTED_MEDIA_ERR, BALANCE_UNAVAILABLE_ERR, RESULT_DOWNLOAD_FAILED_ERR } from "@constants/index";
+import { TYPE_SET_BALANCE, PICSARTURL, GENAIURL, UPSCALE, GENERATEIMAGE, EDITIMAGE, EDIT_MODE_ASYNC, REMOVEBG, REMOVEBG_SHADOW_DISABLED, REMOVEBG_SHADOW_CUSTOM, REMOVE_BG_FAILED_ERR, REMOVE_BG_REJECTED_ERR, UPSCALE_FAILED_ERR, UPSCALE_REJECTED_ERR, GENERATE_IMAGE_FAILED_ERR, GENERATE_IMAGE_REJECTED_ERR, EDIT_IMAGE_FAILED_ERR, EDIT_IMAGE_REJECTED_ERR, UNSUPPORTED_MEDIA_ERR, RESULT_DOWNLOAD_FAILED_ERR } from "@constants/index";
 import getImageBinary, { imageTypeOf, type PreparedSource } from "@utils/imageBinary";
-import { customFetch } from "./customFetch";
+import type { CredentialInput } from "@app-types/credential";
+import { asCredential, customFetch } from "./customFetch";
+import { getBalance } from "./getBalance";
 import { describeApiFailure, describeTransientFailure, fetchResultBytes, isAbortError, isTokenError, readApiText, readJsonBody } from "./apiError";
-
-interface BalanceResponse {
-    message?: string;
-    credits?: number;
-}
 
 interface GenerateImageResponse {
     inference_id?: string;
@@ -124,7 +121,7 @@ export const extractCreditsFromResponse = (response: Response): number | null =>
  * anyway, and posting a failure here would replace a correct cached balance with a
  * worse one.
  */
-export const refreshBalance = async (key: string): Promise<void> => {
+export const refreshBalance = async (key: CredentialInput): Promise<void> => {
     const balance = await getBalance(key);
     if (balance.success && typeof balance.msg === "number") {
         sendMessageToSandBox(true, String(balance.msg), TYPE_SET_BALANCE);
@@ -142,49 +139,18 @@ export const sendMessageToSandBox = (success: boolean, msg: string | Uint8Array,
     }}, "*" );
 }   
 
-export const getBalance = async (key: string) : Promise<GetBalanceReturnType> => {
-    try {
-        const response = await customFetch(PICSARTURL + BALANACE, { headers: { [HEADERAPI] : key }});
-        const res = (await readJsonBody(response)) as BalanceResponse | null;
+export { getBalance };
 
-        if (!response.ok || isTokenError(response.status, res)) {
-            return {
-                success: false,
-                // A wrong key is the one failure with its own actionable wording;
-                // everything else is "we could not read it", not "it is wrong".
-                msg: isTokenError(response.status, res)
-                    ? KEY_WRONG_ERR
-                    : readApiText(res) || BALANCE_UNAVAILABLE_ERR,
-            };
-        }
-
-        // A 200 whose body carries no number is not a balance of zero. Treated as
-        // one, it would tell a paying user they are out of credits.
-        if (typeof res?.credits !== "number" || !isFinite(res.credits)) {
-            console.warn("Balance response carried no numeric credits field:", res);
-            return { success: false, msg: BALANCE_UNAVAILABLE_ERR };
-        }
-
-        return { success: true, msg: res.credits };
-    } catch (error) {
-        console.error("Error reading the credit balance:", error);
-        return { success: false, msg: BALANCE_UNAVAILABLE_ERR };
-    }
-};
-
-export const generateImage = async (prompt: string, key: string, options: GenerateImageOptions) => {
+export const generateImage = async (prompt: string, key: CredentialInput, options: GenerateImageOptions) => {
     if (!prompt) {
         return { success: false, msg: "Prompt is required" };
     }
 
     try {
-        const response = await fetch(GENAIURL + GENERATEIMAGE, {
+        const response = await customFetch(GENAIURL + GENERATEIMAGE, {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                [HEADERAPI]: key,
-                "X-Picsart-Plugin": "Figma",
-            },
+            headers: { "Content-Type": "application/json" },
+            credential: key,
             body: JSON.stringify({
                 prompt,
                 negative_prompt: options.negative_prompt || "",
@@ -221,6 +187,7 @@ export const generateImage = async (prompt: string, key: string, options: Genera
             body: res,
             rejected: GENERATE_IMAGE_REJECTED_ERR,
             transient: GENERATE_IMAGE_FAILED_ERR,
+            credential: asCredential(key),
         });
     } catch (error) {
         console.error("Error generating image:", error);
@@ -228,14 +195,11 @@ export const generateImage = async (prompt: string, key: string, options: Genera
     }
 };
 
-export const checkGenerateImageStatus = async (inferenceId: string, key: string, signal?: AbortSignal) => {
+export const checkGenerateImageStatus = async (inferenceId: string, key: CredentialInput, signal?: AbortSignal) => {
     try {
         const response = await customFetch(`${GENAIURL}${GENERATEIMAGE}/inferences/${inferenceId}`, {
             method: "GET",
-            headers: {
-                [HEADERAPI]: key,
-                "X-Picsart-Plugin": "Figma"
-            },
+            credential: key,
             signal,
         });
 
@@ -247,6 +211,7 @@ export const checkGenerateImageStatus = async (inferenceId: string, key: string,
                 body: res,
                 rejected: GENERATE_IMAGE_REJECTED_ERR,
                 transient: GENERATE_IMAGE_FAILED_ERR,
+                credential: asCredential(key),
             });
             return { status: "error", msg: failure.msg };
         }
@@ -335,7 +300,7 @@ export const downloadGeneratedImages = async (imageUrls: string[], signal?: Abor
 
 export const editImage = async (
     source: PreparedSource,
-    key: string,
+    key: CredentialInput,
     options: EditImageOptions
 ) => {
     if (!options.prompt.trim()) {
@@ -364,10 +329,7 @@ export const editImage = async (
 
         const response = await customFetch(GENAIURL + EDITIMAGE, {
             method: "POST",
-            // Only headers the gateway's CORS preflight permits. Adding one that is not
-            // on that list breaks this call in Figma while leaving every test and every
-            // curl green — see CORS_SAFE_REQUEST_HEADERS in constants/url.ts.
-            headers: { [HEADERAPI]: key },
+            credential: key,
             body: formData,
         });
 
@@ -422,6 +384,7 @@ export const editImage = async (
             body: res,
             rejected: EDIT_IMAGE_REJECTED_ERR,
             transient: EDIT_IMAGE_FAILED_ERR,
+            credential: asCredential(key),
         });
     } catch (error) {
         console.error("Error editing image:", error);
@@ -429,7 +392,7 @@ export const editImage = async (
     }
 };
 
-export const removeBackgroundApi = async (imageBytes: Uint8Array, key: string, options: RemoveBackgroundOptions = {}) => {
+export const removeBackgroundApi = async (imageBytes: Uint8Array, key: CredentialInput, options: RemoveBackgroundOptions = {}) => {
     try {
         const imageBinary = await getImageBinary(imageBytes.buffer as ArrayBuffer);
 
@@ -466,7 +429,7 @@ export const removeBackgroundApi = async (imageBytes: Uint8Array, key: string, o
 
         const response = await customFetch(PICSARTURL + REMOVEBG, {
             method: "POST",
-            headers: { [HEADERAPI]: key },
+            credential: key,
             body: formData,
         });
 
@@ -484,6 +447,7 @@ export const removeBackgroundApi = async (imageBytes: Uint8Array, key: string, o
                 body: res,
                 rejected: REMOVE_BG_REJECTED_ERR,
                 transient: REMOVE_BG_FAILED_ERR,
+                credential: asCredential(key),
             });
         }
 
@@ -514,7 +478,7 @@ export const removeBackgroundApi = async (imageBytes: Uint8Array, key: string, o
     }
 };
 
-export const enhanceImage = async (imageBytes: Uint8Array, key: string, scaleFactor: number, format?: string) => {
+export const enhanceImage = async (imageBytes: Uint8Array, key: CredentialInput, scaleFactor: number, format?: string) => {
     try {
         const imageBinary = await getImageBinary(imageBytes.buffer as ArrayBuffer);
 
@@ -528,7 +492,7 @@ export const enhanceImage = async (imageBytes: Uint8Array, key: string, scaleFac
 
         const response = await customFetch(PICSARTURL + UPSCALE, {
             method: "POST",
-            headers: { [HEADERAPI]: key },
+            credential: key,
             body: formData,
         });
 
@@ -546,6 +510,7 @@ export const enhanceImage = async (imageBytes: Uint8Array, key: string, scaleFac
                 body: res,
                 rejected: UPSCALE_REJECTED_ERR,
                 transient: UPSCALE_FAILED_ERR,
+                credential: asCredential(key),
             });
         }
 

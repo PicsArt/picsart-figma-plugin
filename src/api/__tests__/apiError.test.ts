@@ -1,13 +1,18 @@
 import { describe, expect, it } from "vitest";
 import {
+  classifyTokenFailure,
   describeApiFailure,
   isRetryableStatus,
   isTokenError,
+  mayReceiveCredential,
   readApiText,
   sanitizeApiDetail,
 } from "@api/apiError";
 import {
+  BEARER_REJECTED_ERR,
   KEY_WRONG_ERR,
+  SESSION_EXPIRED_ERR,
+  SESSION_SCOPE_ERR,
   UPSCALE_FAILED_ERR,
   UPSCALE_REJECTED_ERR,
 } from "@constants/index";
@@ -144,5 +149,146 @@ describe("describeApiFailure", () => {
   it("recognises a token error the API reports with a non-401 status", () => {
     expect(isTokenError(200, { message: "token_error" })).toBe(true);
     expect(isTokenError(422, UPSCALE_422)).toBe(false);
+  });
+});
+
+describe("classifyTokenFailure", () => {
+  it("calls an API key a wrong key", () => {
+    expect(classifyTokenFailure({ kind: "apikey", token: "k" })).toBe("wrong-key");
+  });
+
+  it("calls no credential at all a wrong key, rather than throwing", () => {
+    expect(classifyTokenFailure()).toBe("wrong-key");
+  });
+
+  it("calls a first bearer 401 an expired session when the expiry is not known", () => {
+    expect(
+      classifyTokenFailure({ kind: "oauth", token: "t", scopes: ["workflows.execute"] })
+    ).toBe("session-expired");
+  });
+
+  it("refuses to call a token that is still in date expired", () => {
+    expect(
+      classifyTokenFailure({
+        kind: "oauth",
+        token: "t",
+        scopes: ["workflows.execute"],
+        expiresAt: Date.now() + 60_000,
+      })
+    ).toBe("bearer-rejected");
+  });
+
+  it("still calls a token that IS past its expiry an expired session", () => {
+    expect(
+      classifyTokenFailure({
+        kind: "oauth",
+        token: "t",
+        scopes: ["workflows.execute"],
+        expiresAt: Date.now() - 1,
+      })
+    ).toBe("session-expired");
+  });
+
+  it("calls a second 401 after a refresh a rejected bearer, not another expiry", () => {
+    expect(
+      classifyTokenFailure({
+        kind: "oauth",
+        token: "t",
+        scopes: ["workflows.execute"],
+        refreshed: true,
+      })
+    ).toBe("bearer-rejected");
+  });
+
+  it("checks the missing scope BEFORE expiry, because a refresh reissues the same scopes", () => {
+    expect(
+      classifyTokenFailure({ kind: "oauth", token: "t", scopes: ["openid", "profile"] })
+    ).toBe("missing-scope");
+  });
+
+  it("does not claim a missing scope for a token whose scopes were never read", () => {
+    expect(classifyTokenFailure({ kind: "oauth", token: "t" })).toBe("session-expired");
+  });
+});
+
+describe("describeApiFailure on a 401", () => {
+  const failure = (credential?: Parameters<typeof classifyTokenFailure>[0]) =>
+    describeApiFailure({
+      status: 401,
+      body: { message: "token_error", detail: "User token was not provided or is invalid" },
+      rejected: UPSCALE_REJECTED_ERR,
+      transient: UPSCALE_FAILED_ERR,
+      credential,
+    });
+
+  it("keeps the wrong-key wording and terminal verdict for an API key", () => {
+    expect(failure({ kind: "apikey", token: "k" })).toEqual({
+      success: false,
+      msg: KEY_WRONG_ERR,
+      retryable: false,
+      tokenFailure: "wrong-key",
+    });
+  });
+
+  it("marks an expired session retryable — the one 4xx a later attempt survives", () => {
+    expect(failure({ kind: "oauth", token: "t", scopes: ["workflows.execute"] })).toEqual({
+      success: false,
+      msg: SESSION_EXPIRED_ERR,
+      retryable: true,
+      tokenFailure: "session-expired",
+    });
+  });
+
+  it("offers a retry for a token past its expiry, and not for one still in date", () => {
+    expect(
+      failure({
+        kind: "oauth",
+        token: "t",
+        scopes: ["workflows.execute"],
+        expiresAt: Date.now() - 1,
+      })
+    ).toMatchObject({ msg: SESSION_EXPIRED_ERR, retryable: true });
+
+    expect(
+      failure({
+        kind: "oauth",
+        token: "t",
+        scopes: ["workflows.execute"],
+        expiresAt: Date.now() + 60_000,
+      })
+    ).toMatchObject({ msg: BEARER_REJECTED_ERR, retryable: false });
+  });
+
+  it("does not offer a retry for a missing scope or a rejected bearer", () => {
+    expect(failure({ kind: "oauth", token: "t", scopes: [] })).toMatchObject({
+      msg: SESSION_SCOPE_ERR,
+      retryable: false,
+    });
+    expect(
+      failure({ kind: "oauth", token: "t", scopes: ["workflows.execute"], refreshed: true })
+    ).toMatchObject({ msg: BEARER_REJECTED_ERR, retryable: false });
+  });
+
+  it("prefers the local classification over the API's own sentence", () => {
+    expect(failure({ kind: "apikey", token: "k" }).msg).not.toContain("User token");
+  });
+});
+
+describe("mayReceiveCredential", () => {
+  it("permits the API hosts and the auth host", () => {
+    expect(mayReceiveCredential("https://api.picsart.io/v1/balance")).toBe(true);
+    expect(mayReceiveCredential("https://genai-api.picsart.io/v1/figma/text2image")).toBe(true);
+    expect(mayReceiveCredential("https://auth.picsart.com/api/oauth2/token")).toBe(true);
+  });
+
+  it("refuses the result CDNs, which is why RESULT_HOST_ALLOWLIST cannot be reused", () => {
+    expect(mayReceiveCredential("https://cdn.picsart.io/abc.png")).toBe(false);
+    expect(mayReceiveCredential("https://aicdn.picsart.com/abc.png")).toBe(false);
+    expect(mayReceiveCredential("https://project-files.picsart.com/abc.png")).toBe(false);
+    expect(mayReceiveCredential("https://accounts.picsart.com/")).toBe(false);
+  });
+
+  it("is not fooled by a lookalike hostname", () => {
+    expect(mayReceiveCredential("https://api.picsart.io.evil.test/v1/balance")).toBe(false);
   });
 });
