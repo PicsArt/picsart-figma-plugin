@@ -155,9 +155,13 @@ const refreshRecord = async (
     const result = await refreshThroughPage(pluginApi, record.refreshToken);
 
     if (result.ok) {
-        const stored = await writeOAuthRecord(pluginApi, result.record);
+        const refreshed = {
+            ...result.record,
+            refreshToken: result.record.refreshToken ?? record.refreshToken,
+        };
+        const stored = await writeOAuthRecord(pluginApi, refreshed);
         if (result.name) displayName = result.name;
-        const effective = stored ?? { ...result.record, writtenAt: record.writtenAt };
+        const effective = stored ?? { ...refreshed, writtenAt: record.writtenAt };
         setStateQuietly(signedInState(effective));
         return credentialFromRecord(effective);
     }

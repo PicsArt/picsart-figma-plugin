@@ -208,8 +208,7 @@ export const App = () => {
         loadExchangePage(String(pluginMessage.url));
       }
       else if (type === TYPE_EXCHANGE_REQUEST) {
-        const { nonce, code, verifier } = pluginMessage;
-        requestExchange(nonce, code, verifier);
+        requestExchange(pluginMessage.nonce, pluginMessage);
       }
       else if (type === TYPE_AUTH_STATE) {
         setAuthState(payload as AuthState);

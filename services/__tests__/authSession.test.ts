@@ -124,6 +124,14 @@ const stateFromUrl = (url: string): string =>
 beforeEach(() => {
     resetUiBridge();
     resetAuthSession();
+
+    // Nothing here may reach the network. Most calls take an injected fetch, but
+    // `cancelSignIn` and `signOut` re-arm through `armSignIn(pluginApi)` with none —
+    // correct in production, where the global is the seam — so the tests that exercise
+    // them POSTed to the live relay and failed on a 5s socket timeout whenever it was
+    // slow or rate-limited. An injected stub still wins over this one.
+    vi.stubGlobal("fetch", relay());
+
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
 });
@@ -131,6 +139,7 @@ beforeEach(() => {
 afterEach(() => {
     resetUiBridge();
     resetAuthSession();
+    vi.unstubAllGlobals();
     vi.restoreAllMocks();
 });
 
@@ -595,6 +604,24 @@ describe("activeCredential", () => {
                 refreshToken: "rt:new",
             });
             expect(authState()).toMatchObject({ status: "signedIn" });
+        });
+
+        it("keeps the stored refresh token when the server issues no new one", async () => {
+            // RFC 6749 section 6: a new refresh token is optional on a refresh. Taking
+            // the response literally drops the one that still works, and the session
+            // then dies at the NEXT expiry with "your session has ended".
+            const stub = makeFigmaStub({
+                clientStorage: { ...expired },
+                exchange: exchanged({ refresh_token: undefined }),
+            });
+            ready(stub);
+
+            const active = await activeCredential(stub.api);
+
+            expect(active.credential).toMatchObject({ kind: "oauth", token: TOKEN });
+            expect(stub.clientStorage.get(OAUTH_RECORD_NAME)).toMatchObject({
+                refreshToken: "rt:stored",
+            });
         });
 
         it("refreshes SILENTLY, so a background refresh cannot hijack the panel", async () => {

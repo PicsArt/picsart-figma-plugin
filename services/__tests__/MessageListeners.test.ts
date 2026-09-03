@@ -434,6 +434,31 @@ describe("handleUiMessage", () => {
   });
 
   describe("the auth commands", () => {
+    const relayFetch = () => {
+      const key = "A".repeat(43);
+      const reply = (body: unknown) => ({
+        ok: true,
+        status: 200,
+        headersObject: {},
+        json: async () => body,
+        text: async () => JSON.stringify(body),
+      });
+
+      return vi.fn(async (url: string) =>
+        String(url).indexOf("/result") === -1
+          ? reply({ write_key: key, read_key: key.replace("A", "B"), expires_in: 600 })
+          : reply({ status: "pending" })
+      );
+    };
+
+    beforeEach(() => {
+      vi.stubGlobal("fetch", relayFetch());
+    });
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
     const jwt = (claims: Record<string, unknown>): string => {
       const encode = (value: unknown) =>
         Buffer.from(JSON.stringify(value))
