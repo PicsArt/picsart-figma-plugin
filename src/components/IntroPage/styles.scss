@@ -80,25 +80,6 @@
           }
         }
 
-        .keyset-btn {
-          padding: 6px 12px;
-          height: 32px;
-          width: 100%;
-          font-size: 12px;
-          border: 1px solid #6929d1;
-          border-radius: 32px;
-          background: #6929d1;
-          color: #ffffff;
-          transition: background 0.3s ease, border-color 0.3s ease,
-            color 0.3s ease;
-          cursor: pointer;
-
-          &:hover {
-            border: 1px solid #6929d1;
-            background: #f3ebf3;
-            color: #6929d1;
-          }
-        }
       }
 
       .key-learn-more {
@@ -184,25 +165,6 @@
           }
         }
 
-        .keyset-btn {
-          padding: 6px 12px;
-          height: 32px;
-          width: 100%;
-          font-size: 12px;
-          border: 1px solid #6929d1;
-          border-radius: 32px;
-          background: #6929d1;
-          color: #ffffff;
-          transition: background 0.3s ease, border-color 0.3s ease,
-            color 0.3s ease;
-          cursor: pointer;
-
-          &:hover {
-            border: 1px solid #6929d1;
-            background: #f3ebf3;
-            color: #6929d1;
-          }
-        }
       }
 
       .key-learn-more {
@@ -216,4 +178,38 @@
       }
     }
   }
+}
+
+@mixin intro-chooser($text-color, $rule-color) {
+  .intro-page {
+    .signin-choice {
+      display: flex;
+      flex-direction: column;
+      gap: $gap-large;
+      width: 100%;
+      padding-bottom: $gap-large;
+      border-bottom: 1px solid $rule-color;
+
+      .intro-text {
+        margin: 0;
+        color: $text-color;
+        font-family: "Inter";
+        font-weight: 500;
+        font-size: 11px;
+        letter-spacing: 0.16px;
+      }
+    }
+
+    .text-container .intro-alt-lead {
+      font-weight: 700;
+    }
+  }
+}
+
+.figma-light {
+  @include intro-chooser($light-color-option-active, $color-border);
+}
+
+.figma-dark {
+  @include intro-chooser($dark-color-option-active, #4a4646);
 }

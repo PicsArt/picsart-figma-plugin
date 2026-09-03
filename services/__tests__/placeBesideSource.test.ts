@@ -3,13 +3,6 @@ import { placeBesideSource } from "../ImageProcessor";
 import { EDIT_NOTHING_PLACED_ERR, SOURCE_LAYER_GONE_PLACED_ERR } from "../../constants/index";
 import { imagePaint, makeFigmaStub, makeHostileParent, makeNode } from "./figmaStub";
 
-/**
- * The canvas is the product for edit mode, and it had no spec across three review
- * runs. The contract these tests hold to is `docs/design/edit-mode-canvas-layout.md`
- * — gap, direction, ordering, sizing, naming, second-run behaviour, the three parents
- * that cannot host a placement, and the post-run selection.
- */
-
 const IMAGE = () => new Uint8Array([1, 2, 3]);
 const GAP = 24;
 

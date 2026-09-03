@@ -1,12 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetUiBridge } from "../UiBridge";
+import { resetAuthSession } from "../authSession";
 import CustomSessionStorage from "../CustomSessionStorage";
+import { apiKeyIdentity } from "../credentialIdentity";
 import {
   API_KEY_NAME,
   KEY_WRONG_ERR,
+  TYPE_AUTH_STATE,
+  TYPE_CREDENTIAL,
   TYPE_GET_BALANCE,
   TYPE_IMAGE_SELECTED,
-  TYPE_KEY,
   TYPE_TAB,
 } from "../../constants/index";
 import { imagePaint, makeFigmaStub, makeNode } from "./figmaStub";
@@ -19,7 +22,7 @@ import { imagePaint, makeFigmaStub, makeNode } from "./figmaStub";
  */
 
 const mocks = vi.hoisted(() => ({ getBalance: vi.fn() }));
-vi.mock("@api/index", () => ({ getBalance: mocks.getBalance }));
+vi.mock("@api/getBalance", () => ({ getBalance: mocks.getBalance }));
 
 import openPanel from "../../controllers/openPanel";
 
@@ -34,16 +37,17 @@ const announceReady = (api: PluginAPI) =>
 describe("openPanel", () => {
   beforeEach(() => {
     resetUiBridge();
+    resetAuthSession();
     mocks.getBalance.mockReset();
     mocks.getBalance.mockResolvedValue({ success: true, msg: 25 });
-    // A fresh singleton per case: the cache and the session flag are module state.
-    CustomSessionStorage.getInstance().setBalance(0);
-    (CustomSessionStorage.getInstance() as unknown as { isCurrentSession: boolean })
-      .isCurrentSession = false;
+    CustomSessionStorage.getInstance().reset();
   });
-  afterEach(() => resetUiBridge());
+  afterEach(() => {
+    resetUiBridge();
+    resetAuthSession();
+  });
 
-  it("sends the key, the selection and the tab, in that order", async () => {
+  it("sends the credential, the auth state, the selection and the tab, in that order", async () => {
     const node = makeNode({ id: "1:2", fills: [imagePaint("h1")] });
     const { api, posted } = makeFigmaStub({
       selection: [node],
@@ -55,13 +59,26 @@ describe("openPanel", () => {
     await flush();
 
     const types = posted.map((msg) => msg.type);
-    expect(types).toContain(TYPE_KEY);
+    expect(types).toContain(TYPE_CREDENTIAL);
     expect(types).toContain(TYPE_TAB);
     expect(types).toContain(TYPE_IMAGE_SELECTED);
-    expect(posted.find((msg) => msg.type === TYPE_KEY)?.payload).toBe(KEY);
-    // The key must land before the tab: ui.tsx gates every panel behind `apiKey &&`,
-    // so a tab that arrives first renders nothing.
-    expect(types.indexOf(TYPE_KEY)).toBeLessThan(types.indexOf(TYPE_TAB));
+    expect(posted.find((msg) => msg.type === TYPE_CREDENTIAL)?.payload).toEqual({
+      credential: { kind: "apikey", token: KEY },
+      apiKey: KEY,
+    });
+    expect(types.indexOf(TYPE_CREDENTIAL)).toBeLessThan(types.indexOf(TYPE_TAB));
+  });
+
+  it("posts the auth state on EVERY session, not only during a sign-in (task A13)", async () => {
+    const { api, posted } = makeFigmaStub({ clientStorage: { [API_KEY_NAME]: KEY } });
+
+    await openPanel({ tab: "Upscale" }, api, "<html>");
+    announceReady(api);
+    await flush();
+
+    expect(posted.find((msg) => msg.type === TYPE_AUTH_STATE)?.payload).toEqual({
+      status: "idle",
+    });
   });
 
   it("queues everything until the UI reports ready, rather than guessing a delay", async () => {
@@ -93,7 +110,7 @@ describe("openPanel", () => {
     await flush();
 
     expect(posted.find((msg) => msg.type === TYPE_GET_BALANCE)?.payload).toBe(25);
-    expect(CustomSessionStorage.getInstance().getCurrentSession()).toBe(true);
+    expect(CustomSessionStorage.getInstance().isWarmFor(apiKeyIdentity(KEY))).toBe(true);
   });
 
   it("does NOT cache a failed balance fetch, and does not mark the session warm", async () => {
@@ -112,7 +129,7 @@ describe("openPanel", () => {
     expect(payload).toBe(0);
     expect(typeof payload).toBe("number");
     // Not warm, so the next panel open tries again instead of trusting the failure.
-    expect(CustomSessionStorage.getInstance().getCurrentSession()).toBe(false);
+    expect(CustomSessionStorage.getInstance().isWarmFor(apiKeyIdentity(KEY))).toBe(false);
   });
 
   it("does not fetch the balance twice in one session", async () => {
@@ -140,8 +157,11 @@ describe("openPanel", () => {
     expect(mocks.getBalance).not.toHaveBeenCalled();
   });
 
-  it("returns the key it read, which is what routing decisions are made on", async () => {
+  it("returns the whole active credential, which is what routing decisions are made on", async () => {
     const { api } = makeFigmaStub({ clientStorage: { [API_KEY_NAME]: KEY } });
-    await expect(openPanel({ tab: "Upscale" }, api, "<html>")).resolves.toBe(KEY);
+    await expect(openPanel({ tab: "Upscale" }, api, "<html>")).resolves.toEqual({
+      credential: { kind: "apikey", token: KEY },
+      apiKey: KEY,
+    });
   });
 });

@@ -1,12 +1,13 @@
-import { getBalance } from "@api/index";
+import { TYPE_TAB } from "@constants/index";
 import {
-  API_KEY_NAME,
-  TYPE_GET_BALANCE,
-  TYPE_KEY,
-  TYPE_TAB,
-} from "@constants/index";
-import CustomSessionStorage from "@services/CustomSessionStorage";
-import { rememberBalance } from "@services/balance";
+  activeCredential,
+  armSignIn,
+  postAuthState,
+  postCredential,
+  type ActiveCredential,
+} from "@services/authSession";
+import { loadExchangePage } from "@services/exchangePage";
+import { deliverBalance } from "@services/balance";
 import { sendImageSelectionStatus } from "@services/ImageProcessor";
 import { beginUiSession, onUiReady, postToUi } from "@services/UiBridge";
 
@@ -59,7 +60,7 @@ const openPanel = async (
    * it would have been a fresh way to produce it. Better to throw.
    */
   html?: string
-): Promise<string> => {
+): Promise<ActiveCredential> => {
   const {
     tab,
     height,
@@ -69,7 +70,7 @@ const openPanel = async (
     includeBalance = true,
   } = options;
 
-  const apiKey: string = await pluginApi.clientStorage.getAsync(API_KEY_NAME);
+  const active = await activeCredential(pluginApi);
 
   // `__html__` is only evaluated when no document was injected, so a test never touches
   // it and the sandbox never silently gets an empty string.
@@ -85,7 +86,13 @@ const openPanel = async (
   beginUiSession(pluginApi);
 
   // Queued, not delayed. These land the moment the UI reports it has mounted.
-  postToUi(pluginApi, { type: TYPE_KEY, payload: apiKey });
+  postCredential(pluginApi, active);
+
+  postAuthState(pluginApi);
+
+  void armSignIn(pluginApi);
+
+  loadExchangePage(pluginApi);
 
   if (includeImageSelection) {
     onUiReady(pluginApi, () => sendImageSelectionStatus(pluginApi));
@@ -93,33 +100,13 @@ const openPanel = async (
 
   postToUi(pluginApi, { type: TYPE_TAB, payload: tab });
 
-  if (includeBalance && apiKey) {
-    const sessionStorage = CustomSessionStorage.getInstance();
-    if (!sessionStorage.getCurrentSession()) {
-      // Deliberately not awaited: the panel should render while the balance is in
-      // flight, exactly as before.
-      getBalance(apiKey).then((res) => {
-        // Through the same guard MessageListeners uses. This used to cast
-        // `res.msg as number` unconditionally AND call setCurrentSession(), so one
-        // failed boot-time fetch cached an error string as the balance and marked
-        // the session warm — nothing re-fetched for the rest of it, and every
-        // button stayed enabled because `"..." <= 0` is false.
-        const accepted = rememberBalance(res.success ? res.msg : undefined);
-        if (accepted) sessionStorage.setCurrentSession();
-        postToUi(pluginApi, {
-          type: TYPE_GET_BALANCE,
-          payload: sessionStorage.getBalance(),
-        });
-      });
-    } else {
-      postToUi(pluginApi, {
-        type: TYPE_GET_BALANCE,
-        payload: sessionStorage.getBalance(),
-      });
-    }
+  const credential = active.credential;
+
+  if (includeBalance && credential) {
+    void deliverBalance(pluginApi, credential);
   }
 
-  return apiKey;
+  return active;
 };
 
 export default openPanel;

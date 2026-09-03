@@ -5,7 +5,6 @@ export enum TabType {
   UPSCALE = "Upscale",
   ACCOUNT = "Account Balance",
   SUPPORT = "Support",
-  SET_API_KEY = "Set API Key",
 }
 
 export enum BannerStance {
@@ -29,12 +28,21 @@ export enum BtnType {
   EDIT_IMAGE_NO_CREDITS = "generate-image-no-credits edit-image-no-credits",
   EDIT_IMAGE_DISABLED = "generate-image-disabled edit-image-disabled",
   CONTINUE = "continue",
-  CHANGE_KEY = "change-key",
+  CONTINUE_DISABLED = "continue-disabled",
   BUY_MORE = "buy-more",
   ADD_CREDITS = "add-credits",
   NEW_KEY = "new-key",
   SUBMIT_ACTIVE = "submit-active",
   SUBMIT_DISABLED = "submit-disabled",
+  REMOVE_KEY = "remove-key",
+
+  SIGN_IN = "sign-in-btn",
+  SIGN_IN_DISABLED = "sign-in-disabled",
+  SIGN_IN_RETRY = "sign-in-retry",
+  SIGN_OUT = "sign-out-btn",
+  CANCEL = "cancel-btn",
+  USE_API_KEY = "use-api-key",
+  REOPEN_BROWSER = "reopen-browser",
 }
 
 export {};

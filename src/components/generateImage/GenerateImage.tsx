@@ -63,17 +63,20 @@ import { SelectField } from "@ui/index";
 import usePluginHeight from "@hooks/usePluginHeight";
 import useSelectedImage, { describeBytesFailure } from "@hooks/useSelectedImage";
 import resolveActionButton from "@utils/actionButton";
+import { withCredentialRescue } from "@utils/credentialRescue";
 import { prepareEditSource } from "@utils/imageBinary";
 import { placeEditedImages, placeGeneratedImages } from "@utils/placement";
 import { BannerStance, BtnType } from "@app-types/enums";
 import "./styles.scss";
+import type { CredentialInput } from "@app-types/credential";
+import { useCredential } from "../../context/CredentialContext";
 
 // The worker rejects a prompt over 10000 characters. Enforced in the control so a
 // paste cannot spend a request proving it.
 const PROMPT_MAX_LENGTH = 10000;
 
 interface GenerateImageProps {
-  gottenKey: string;
+  gottenKey: CredentialInput;
   isCreditsInsufficient: boolean;
   isOffline: boolean;
 }
@@ -159,6 +162,14 @@ const GenerateImage: React.FC<GenerateImageProps> = ({
    */
   useEffect(() => setRunSummary(""), [prompt, isEditMode]);
 
+  const { getCredential, refreshCredential } = useCredential();
+  const credentialSource = () => getCredential() ?? gottenKey;
+  const rescue = {
+    credential: getCredential,
+    refresh: refreshCredential,
+    fallback: gottenKey,
+  };
+
   const finish = () => {
     abortRef.current = null;
     inFlight.current = false;
@@ -173,7 +184,7 @@ const GenerateImage: React.FC<GenerateImageProps> = ({
     //
     // In `finish` rather than on the success path, because a job can fail after being
     // charged and the user needs to see that the credits went.
-    if (gottenKey) void refreshBalance(gottenKey);
+    if (gottenKey) void refreshBalance(credentialSource());
   };
 
   /** Text-to-image: an accepted job, then poll, then place in the gallery frame. */
@@ -195,14 +206,18 @@ const GenerateImage: React.FC<GenerateImageProps> = ({
     setLoadingMessage(LOADING_GENERATING);
     sendMessageToSandBox(true, GENERATING_IMAGE, TYPE_NOTIFY);
 
-    const response = await generateImage(finalPrompt, gottenKey, {
-      width: dimensions.width,
-      height: dimensions.height,
-      style: hasStyle ? style : "",
-      negative_prompt: DEFAULT_NEGATIVE_PROMPT,
-      count,
-      model,
-    });
+    const response = await withCredentialRescue(
+      (credential) =>
+        generateImage(finalPrompt, credential, {
+          width: dimensions.width,
+          height: dimensions.height,
+          style: hasStyle ? style : "",
+          negative_prompt: DEFAULT_NEGATIVE_PROMPT,
+          count,
+          model,
+        }),
+      rescue
+    );
 
     if (!response.success || !response.inferenceId) {
       sendMessageToSandBox(false, response.msg || GENERATE_IMAGE_FAILED_ERR, TYPE_NOTIFY);
@@ -212,7 +227,8 @@ const GenerateImage: React.FC<GenerateImageProps> = ({
     const outcome = await pollInference({
       paths: [`${GENERATEIMAGE}/inferences/`],
       inferenceId: response.inferenceId,
-      key: gottenKey,
+      credential: credentialSource,
+      refresh: refreshCredential,
       transient: GENERATE_IMAGE_FAILED_ERR,
       rejected: GENERATE_IMAGE_FAILED_ERR,
       signal,
@@ -288,12 +304,16 @@ const GenerateImage: React.FC<GenerateImageProps> = ({
     setLoadingMessage(LOADING_EDITING);
     sendMessageToSandBox(true, EDITING_IMAGE, TYPE_NOTIFY);
 
-    const response = await editImage(source, gottenKey, {
-      prompt,
-      count: editCount,
-      format: editFormat,
-      model: editModel,
-    });
+    const response = await withCredentialRescue(
+      (credential) =>
+        editImage(source, credential, {
+          prompt,
+          count: editCount,
+          format: editFormat,
+          model: editModel,
+        }),
+      rescue
+    );
 
     if (!response.success) {
       sendMessageToSandBox(false, response.msg || EDIT_IMAGE_FAILED_ERR, TYPE_NOTIFY);
@@ -307,7 +327,8 @@ const GenerateImage: React.FC<GenerateImageProps> = ({
       const outcome = await pollInference({
         paths: EDITIMAGE_POLL_PATHS,
         inferenceId: response.inferenceId as string,
-        key: gottenKey,
+        credential: credentialSource,
+        refresh: refreshCredential,
         transient: EDIT_IMAGE_FAILED_ERR,
         rejected: EDIT_IMAGE_FAILED_ERR,
         signal,

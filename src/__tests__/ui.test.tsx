@@ -20,13 +20,18 @@
 // measured by loading dist/ui.html in headless Chromium; see the note in
 // constants/env.ts.
 import React from "react";
-import { act, cleanup, render } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { TYPE_KEY } from "@constants/types";
+import { TYPE_AUTH_STATE, TYPE_CREDENTIAL, TYPE_VALIDATE_KEY } from "@constants/types";
 
 const mocks = vi.hoisted(() => ({
   sendMessageToSandBox: vi.fn(),
-  getBalance: vi.fn(async () => ({ success: true, msg: 100 })),
+  getBalance: vi.fn(
+    async (): Promise<{ success: boolean; msg: number | string }> => ({
+      success: true,
+      msg: 100,
+    })
+  ),
 }));
 
 vi.mock("@api/index", () => ({
@@ -50,25 +55,56 @@ vi.mock("@components/index", () => ({
   Account: () => <div />,
   BalanceBanner: () => <div data-testid="balance-banner" />,
   ChangeAPIkey: () => <div />,
-  IntroPage: () => <div data-testid="intro" />,
+  IntroPage: ({ onSignIn }: { onSignIn?: () => void }) => (
+    <div data-testid="intro">
+      <button data-testid="signin-cta" onClick={onSignIn} />
+    </div>
+  ),
   RemoveBackground: () => <div />,
   RemoveBackgroundHidden: () => <div />,
   Support: () => <div />,
   Upscale: () => <div />,
   GenerateImage: () => <div data-testid="tab-body" />,
   OfflineBanner: () => <div />,
+  SignIn: () => <div data-testid="signin" />,
 }));
 
 import { App } from "../ui";
+import { CredentialProvider } from "../context/CredentialContext";
+
+const renderApp = () =>
+  render(
+    <CredentialProvider>
+      <App />
+    </CredentialProvider>
+  );
+
+const fromSandbox = (pluginMessage: unknown): MessageEvent =>
+  new MessageEvent("message", { data: { pluginMessage } });
 
 const authenticate = () =>
   act(() => {
     window.dispatchEvent(
-      new MessageEvent("message", {
-        data: { pluginMessage: { type: TYPE_KEY, payload: "test-key" } },
+      fromSandbox({
+        type: TYPE_CREDENTIAL,
+        payload: {
+          credential: { kind: "apikey", token: "test-key" },
+          apiKey: "test-key",
+        },
       })
     );
   });
+
+const requestValidation = async () => {
+  await act(async () => {
+    window.dispatchEvent(
+      fromSandbox({
+        type: TYPE_VALIDATE_KEY,
+        payload: { kind: "apikey", token: "test-key" },
+      })
+    );
+  });
+};
 
 afterEach(() => {
   cleanup();
@@ -77,7 +113,7 @@ afterEach(() => {
 
 describe("panel chrome placement", () => {
   it("keeps the tab row out of the scroller", () => {
-    const { container } = render(<App />);
+    const { container } = renderApp();
     authenticate();
 
     const scroller = container.querySelector(".scrollable-content");
@@ -91,7 +127,7 @@ describe("panel chrome placement", () => {
   });
 
   it("keeps the footer host out of the scroller", () => {
-    const { container } = render(<App />);
+    const { container } = renderApp();
     authenticate();
 
     const scroller = container.querySelector(".scrollable-content");
@@ -102,7 +138,7 @@ describe("panel chrome placement", () => {
   });
 
   it("orders the chrome tabs, then scroller, then footer, then credits", () => {
-    const { container } = render(<App />);
+    const { container } = renderApp();
     authenticate();
 
     const main = container.querySelector(".main-content")!;
@@ -124,12 +160,132 @@ describe("panel chrome placement", () => {
   });
 
   it("renders no chrome around the intro page when there is no key", () => {
-    const { container } = render(<App />);
+    const { container } = renderApp();
 
     // A keyless user has no tabs to switch between and no action to pin, so the
     // panel is the intro page and nothing else.
     expect(container.querySelector('[data-testid="navbar"]')).toBeNull();
     expect(container.querySelector("#panel-footer")).toBeNull();
     expect(container.querySelector('[data-testid="intro"]')).not.toBeNull();
+  });
+});
+
+describe("credential validation replies", () => {
+  it("accepts a valid credential holding exactly zero credits", async () => {
+    mocks.getBalance.mockResolvedValueOnce({ success: true, msg: 0 });
+    renderApp();
+
+    await requestValidation();
+
+    expect(mocks.sendMessageToSandBox).toHaveBeenCalledWith(
+      true,
+      "",
+      TYPE_VALIDATE_KEY
+    );
+  });
+
+  it("rejects a credential the balance call refused", async () => {
+    mocks.getBalance.mockResolvedValueOnce({
+      success: false,
+      msg: "API key is wrong",
+    });
+    renderApp();
+
+    await requestValidation();
+
+    expect(mocks.sendMessageToSandBox).toHaveBeenCalledWith(
+      false,
+      "",
+      TYPE_VALIDATE_KEY
+    );
+  });
+
+  it("opens the browser INSIDE the click, from the armed URL", () => {
+    const opened = vi.fn();
+    vi.stubGlobal("open", opened);
+    const armedUrl = "https://auth.picsart.com/api/oauth2/authorize?state=armed-1";
+    try {
+      renderApp();
+      act(() => {
+        window.dispatchEvent(
+          fromSandbox({ type: TYPE_AUTH_STATE, payload: { status: "armed", authorizeUrl: armedUrl } })
+        );
+      });
+
+      fireEvent.click(screen.getByTestId("signin-cta"));
+
+      expect(opened).toHaveBeenCalledWith(armedUrl, "_blank", "noopener,noreferrer");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("does not open a window for an awaiting state it was merely re-told about", () => {
+    const opened = vi.fn();
+    vi.stubGlobal("open", opened);
+    try {
+      renderApp();
+      act(() => {
+        window.dispatchEvent(
+          fromSandbox({
+            type: TYPE_AUTH_STATE,
+            payload: {
+              status: "awaiting",
+              mode: "paste",
+              authorizeUrl: "https://auth.picsart.com/api/oauth2/authorize?state=retold",
+            },
+          })
+        );
+      });
+
+      expect(opened).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("ignores a pluginMessage posted by one of its own child frames", async () => {
+    renderApp();
+    mocks.sendMessageToSandBox.mockClear();
+
+    const frame = document.createElement("iframe");
+    document.body.appendChild(frame);
+    expect(window.frames.length).toBeGreaterThan(0);
+
+    try {
+      await act(async () => {
+        window.dispatchEvent(
+          new MessageEvent("message", {
+            data: {
+              pluginMessage: {
+                type: TYPE_CREDENTIAL,
+                payload: {
+                  credential: { kind: "apikey", token: "injected-by-the-iframe" },
+                  apiKey: "injected-by-the-iframe",
+                },
+              },
+            },
+            source: frame.contentWindow,
+          })
+        );
+      });
+
+      expect(mocks.getBalance).not.toHaveBeenCalled();
+      expect(mocks.sendMessageToSandBox).not.toHaveBeenCalled();
+    } finally {
+      frame.remove();
+    }
+  });
+
+  it("accepts a sandbox message whose source is not window.parent", async () => {
+    renderApp();
+
+    expect(screen.queryByTestId("navbar")).toBeNull();
+    expect(screen.queryByTestId("tab-body")).toBeNull();
+
+    authenticate();
+
+    expect(screen.getByTestId("navbar")).toBeTruthy();
+    expect(screen.getByTestId("tab-body")).toBeTruthy();
   });
 });

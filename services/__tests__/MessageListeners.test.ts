@@ -1,20 +1,44 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setMessageListeners } from "../MessageListeners";
+import { authState, resetAuthSession } from "../authSession";
 import { beginUiSession, resetUiBridge } from "../UiBridge";
 import CustomSessionStorage from "../CustomSessionStorage";
+import { NO_CREDENTIAL_IDENTITY, apiKeyIdentity } from "../credentialIdentity";
 import {
+  API_KEY_NAME,
+  KEY_REMOVED,
+  KEY_REMOVE_FAILED,
+  KEY_SAVE_FAILED,
+  KEY_SET,
   NODE_CANNOT_HOLD_IMAGE_ERR,
   SOURCE_LAYER_GONE_ERR,
   TYPE_APPLY_IMAGE,
   TYPE_CLOSE_PLUGIN,
   TYPE_GET_BALANCE,
   TYPE_IMAGE_BYTES_RESULT,
+  TYPE_CREDENTIAL,
   TYPE_NOTIFY,
   TYPE_PLACEMENT_DONE,
   TYPE_PLACE_EDITED_IMAGES,
+  TYPE_REMOVE_KEY,
   TYPE_REQUEST_IMAGE_BYTES,
   TYPE_SET_BALANCE,
+  TYPE_SET_KEY,
+  TYPE_AUTH_RESPONSE,
+  TYPE_CANCEL_SIGN_IN,
+  TYPE_REFRESH_CREDENTIAL,
+  TYPE_SIGN_IN,
+  TYPE_SIGN_OUT,
+  TYPE_SWITCH_TAB,
+  TAB_UPSCALE,
+  OAUTH_RECORD_NAME,
+  SIGNED_OUT_USING_KEY_MSG,
+  WIDGET_HEIGHT_WITHOUT_KEY,
 } from "../../constants/index";
+const balanceApi = vi.hoisted(() => ({ getBalance: vi.fn() }));
+vi.mock("@api/getBalance", () => ({ getBalance: balanceApi.getBalance }));
+
+import { resetBalanceReads } from "../balance";
 import { imagePaint, makeFigmaStub, makeNode, solidPaint } from "./figmaStub";
 
 /**
@@ -25,6 +49,7 @@ import { imagePaint, makeFigmaStub, makeNode, solidPaint } from "./figmaStub";
  */
 
 const BYTES = new Uint8Array([7, 7, 7]);
+const KEY = "test-api-key";
 
 // Drives a message through the real bridge rather than calling the handler directly,
 // so the registration path and the queue are part of what is under test.
@@ -40,9 +65,13 @@ const ready = (api: PluginAPI) => {
 };
 
 describe("handleUiMessage", () => {
-  beforeEach(() => resetUiBridge());
+  beforeEach(() => {
+    resetUiBridge();
+    resetAuthSession();
+  });
   afterEach(() => {
     resetUiBridge();
+    resetAuthSession();
     vi.restoreAllMocks();
   });
 
@@ -185,7 +214,10 @@ describe("handleUiMessage", () => {
   describe("the balance guard", () => {
     beforeEach(() => {
       // The cache is a module-level singleton, so each case starts from a known value.
-      CustomSessionStorage.getInstance().setBalance(0);
+      CustomSessionStorage.getInstance().reset();
+      CustomSessionStorage.getInstance().setBalance(0, NO_CREDENTIAL_IDENTITY);
+      balanceApi.getBalance.mockReset();
+      resetBalanceReads();
     });
 
     it("accepts a real number", async () => {
@@ -203,7 +235,7 @@ describe("handleUiMessage", () => {
       async (poison) => {
         const { api, posted } = makeFigmaStub();
         ready(api);
-        CustomSessionStorage.getInstance().setBalance(17);
+        CustomSessionStorage.getInstance().setBalance(17, NO_CREDENTIAL_IDENTITY);
 
         await send(api, { type: TYPE_SET_BALANCE, success: true, msg: poison });
 
@@ -218,11 +250,79 @@ describe("handleUiMessage", () => {
     it("answers a plain balance request from the cache", async () => {
       const { api, posted } = makeFigmaStub();
       ready(api);
-      CustomSessionStorage.getInstance().setBalance(9);
+      CustomSessionStorage.getInstance().setBalance(9, NO_CREDENTIAL_IDENTITY);
 
       await send(api, { type: TYPE_GET_BALANCE, success: true });
 
       expect(posted.find((msg) => msg.type === TYPE_GET_BALANCE)?.payload).toBe(9);
+    });
+
+    it("READS the balance when this session has never read one for this credential", async () => {
+      balanceApi.getBalance.mockResolvedValue({ success: true, msg: 250 });
+      const { api, posted } = makeFigmaStub({ clientStorage: { [API_KEY_NAME]: KEY } });
+      ready(api);
+
+      await send(api, { type: TYPE_GET_BALANCE, success: true });
+
+      await vi.waitFor(() =>
+        expect(posted.find((msg) => msg.type === TYPE_GET_BALANCE)?.payload).toBe(250)
+      );
+      expect(balanceApi.getBalance).toHaveBeenCalledTimes(1);
+    });
+
+    it("reads once when two requests arrive together, rather than racing two replies", async () => {
+      balanceApi.getBalance.mockResolvedValue({ success: true, msg: 250 });
+      const { api, posted } = makeFigmaStub({ clientStorage: { [API_KEY_NAME]: KEY } });
+      ready(api);
+
+      await Promise.all([
+        send(api, { type: TYPE_GET_BALANCE, success: true }),
+        send(api, { type: TYPE_GET_BALANCE, success: true }),
+      ]);
+
+      await vi.waitFor(() =>
+        expect(posted.filter((msg) => msg.type === TYPE_GET_BALANCE).length).toBeGreaterThan(0)
+      );
+      expect(balanceApi.getBalance).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not read it again once this session has", async () => {
+      balanceApi.getBalance.mockResolvedValue({ success: true, msg: 250 });
+      const { api } = makeFigmaStub({ clientStorage: { [API_KEY_NAME]: KEY } });
+      ready(api);
+
+      await send(api, { type: TYPE_GET_BALANCE, success: true });
+      await vi.waitFor(() => expect(balanceApi.getBalance).toHaveBeenCalledTimes(1));
+      await send(api, { type: TYPE_GET_BALANCE, success: true });
+
+      expect(balanceApi.getBalance).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not read it after the UI supplied one, because that number was read too", async () => {
+      balanceApi.getBalance.mockResolvedValue({ success: true, msg: 1 });
+      const { api, posted } = makeFigmaStub({ clientStorage: { [API_KEY_NAME]: KEY } });
+      ready(api);
+
+      await send(api, { type: TYPE_SET_BALANCE, success: true, msg: "77" });
+
+      await vi.waitFor(() =>
+        expect(posted.find((msg) => msg.type === TYPE_GET_BALANCE)?.payload).toBe(77)
+      );
+      expect(balanceApi.getBalance).not.toHaveBeenCalled();
+    });
+
+    it("still answers, and does not cache, when the read fails", async () => {
+      balanceApi.getBalance.mockResolvedValue({ success: false, msg: "API key is wrong" });
+      const { api, posted } = makeFigmaStub({ clientStorage: { [API_KEY_NAME]: KEY } });
+      ready(api);
+
+      await send(api, { type: TYPE_GET_BALANCE, success: true });
+
+      await vi.waitFor(() =>
+        expect(posted.find((msg) => msg.type === TYPE_GET_BALANCE)).toBeDefined()
+      );
+      await send(api, { type: TYPE_GET_BALANCE, success: true });
+      await vi.waitFor(() => expect(balanceApi.getBalance).toHaveBeenCalledTimes(2));
     });
   });
 
@@ -258,6 +358,229 @@ describe("handleUiMessage", () => {
       await send(stub.api, { type: TYPE_CLOSE_PLUGIN, success: true });
 
       expect(stub.closed).toBe(true);
+    });
+  });
+
+  describe("storing the key", () => {
+    it("stores it and confirms it", async () => {
+      const { api, clientStorage, notified } = makeFigmaStub();
+      ready(api);
+
+      await send(api, { type: TYPE_SET_KEY, success: true, msg: KEY });
+
+      expect(clientStorage.get(API_KEY_NAME)).toBe(KEY);
+      expect(notified).toEqual([{ msg: KEY_SET, error: false }]);
+    });
+
+    it("reports a failed write instead of confirming one that did not happen", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => undefined);
+      const { api, notified } = makeFigmaStub({ storageFails: { set: true } });
+      ready(api);
+
+      await send(api, { type: TYPE_SET_KEY, success: true, msg: KEY });
+
+      expect(notified).toEqual([{ msg: KEY_SAVE_FAILED, error: true }]);
+      expect(notified.some((n) => n.msg === KEY_SET)).toBe(false);
+    });
+  });
+
+  describe("removing the key", () => {
+    const withGlobals = (api: PluginAPI) => {
+      vi.stubGlobal("figma", api);
+      vi.stubGlobal("__html__", "<html>");
+    };
+
+    afterEach(() => vi.unstubAllGlobals());
+
+    it("deletes it, clears the cached balance, and returns to the keyless panel", async () => {
+      const stub = makeFigmaStub({ clientStorage: { [API_KEY_NAME]: KEY } });
+      withGlobals(stub.api);
+      CustomSessionStorage.getInstance().setBalance(25, apiKeyIdentity(KEY));
+      CustomSessionStorage.getInstance().markWarm(apiKeyIdentity(KEY));
+      ready(stub.api);
+
+      await send(stub.api, { type: TYPE_REMOVE_KEY, success: true });
+
+      expect(stub.clientStorage.has(API_KEY_NAME)).toBe(false);
+      expect(stub.notified).toEqual([{ msg: KEY_REMOVED, error: false }]);
+      expect(CustomSessionStorage.getInstance().balanceFor(apiKeyIdentity(KEY))).toBeUndefined();
+      expect(CustomSessionStorage.getInstance().isWarmFor(apiKeyIdentity(KEY))).toBe(false);
+
+      const [, options] = stub.showUiCalls.at(-1) as [string, { height: number }];
+      expect(options.height).toBe(WIDGET_HEIGHT_WITHOUT_KEY);
+
+      (stub.api.ui.onmessage as (m: { type: string }) => unknown)({ type: "ui-ready" });
+      expect(stub.posted.find((msg) => msg.type === TYPE_CREDENTIAL)?.payload).toEqual({
+        credential: null,
+        apiKey: "",
+      });
+    });
+
+    it("keeps the panel on the key when the delete fails", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => undefined);
+      const stub = makeFigmaStub({
+        clientStorage: { [API_KEY_NAME]: KEY },
+        storageFails: { delete: true },
+      });
+      withGlobals(stub.api);
+      ready(stub.api);
+
+      await send(stub.api, { type: TYPE_REMOVE_KEY, success: true });
+
+      expect(stub.clientStorage.get(API_KEY_NAME)).toBe(KEY);
+      expect(stub.notified).toEqual([{ msg: KEY_REMOVE_FAILED, error: true }]);
+      expect(stub.showUiCalls).toHaveLength(0);
+    });
+  });
+
+  describe("the auth commands", () => {
+    const relayFetch = () => {
+      const key = "A".repeat(43);
+      const reply = (body: unknown) => ({
+        ok: true,
+        status: 200,
+        headersObject: {},
+        json: async () => body,
+        text: async () => JSON.stringify(body),
+      });
+
+      return vi.fn(async (url: string) =>
+        String(url).indexOf("/result") === -1
+          ? reply({ write_key: key, read_key: key.replace("A", "B"), expires_in: 600 })
+          : reply({ status: "pending" })
+      );
+    };
+
+    beforeEach(() => {
+      vi.stubGlobal("fetch", relayFetch());
+    });
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    const jwt = (claims: Record<string, unknown>): string => {
+      const encode = (value: unknown) =>
+        Buffer.from(JSON.stringify(value))
+          .toString("base64")
+          .replace(/\+/g, "-")
+          .replace(/\//g, "_")
+          .replace(/=+$/, "");
+      return `${encode({ alg: "RS256" })}.${encode(claims)}.sig`;
+    };
+    const TOKEN = jwt({
+      scope: ["openid", "profile", "workflows.execute"],
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    });
+    const oauthRecord = {
+      accessToken: TOKEN,
+      refreshToken: "rt:stored",
+      expiresAt: Date.now() + 3_600_000,
+      scopes: ["openid", "profile", "workflows.execute"],
+      writtenAt: 1,
+    };
+
+    it("starts a sign-in even when the message is not flagged successful", async () => {
+      const { api } = makeFigmaStub();
+      ready(api);
+
+      await send(api, { type: TYPE_SIGN_IN });
+
+      expect(authState().status).toBe("awaiting");
+    });
+
+    it("hands a pasted response over as raw text", async () => {
+      const { api } = makeFigmaStub();
+      ready(api);
+      await send(api, { type: TYPE_SIGN_IN });
+
+      await send(api, { type: TYPE_AUTH_RESPONSE, msg: "not a code" });
+
+      expect(authState().status).toBe("failed");
+    });
+
+    it("acknowledges a terminal auth message when a tab switch is serviced", async () => {
+      const stub = makeFigmaStub();
+      vi.stubGlobal("figma", stub.api);
+      vi.stubGlobal("__html__", "<html>");
+      ready(stub.api);
+      await send(stub.api, { type: TYPE_AUTH_RESPONSE, msg: "ac:no-pending-flow" });
+      expect(authState().status).toBe("failed");
+
+      await send(stub.api, { type: TYPE_SWITCH_TAB, success: true, tab: TAB_UPSCALE });
+
+      await vi.waitFor(() => expect(authState().status).toBe("armed"));
+      vi.unstubAllGlobals();
+    });
+
+    it("cancels a pending sign-in", async () => {
+      const { api } = makeFigmaStub();
+      ready(api);
+      await send(api, { type: TYPE_SIGN_IN });
+
+      await send(api, { type: TYPE_CANCEL_SIGN_IN });
+
+      expect(authState().status).toBe("armed");
+    });
+
+    it("signs out, keeps the API key, and says the credit pool changed", async () => {
+      const stub = makeFigmaStub({
+        clientStorage: { [API_KEY_NAME]: KEY, [OAUTH_RECORD_NAME]: oauthRecord },
+      });
+      ready(stub.api);
+
+      await send(stub.api, { type: TYPE_SIGN_OUT });
+
+      expect(stub.clientStorage.has(OAUTH_RECORD_NAME)).toBe(false);
+      expect(stub.clientStorage.get(API_KEY_NAME)).toBe(KEY);
+      expect(stub.notified.some((n) => n.msg === SIGNED_OUT_USING_KEY_MSG)).toBe(true);
+      expect(stub.posted.filter((m) => m.type === TYPE_CREDENTIAL).at(-1)?.payload).toEqual({
+        credential: { kind: "apikey", token: KEY },
+        apiKey: KEY,
+      });
+    });
+
+    it("answers a refresh request with the SAME requestId it was given", async () => {
+      const stub = makeFigmaStub({ clientStorage: { [API_KEY_NAME]: KEY } });
+      ready(stub.api);
+
+      await send(stub.api, { type: TYPE_REFRESH_CREDENTIAL, requestId: "cred-7" });
+
+      const reply = stub.posted.filter((m) => m.type === TYPE_CREDENTIAL).at(-1);
+      expect(reply?.requestId).toBe("cred-7");
+    });
+
+    it("re-posts the authoritative credential after a key is stored", async () => {
+      const stub = makeFigmaStub({ clientStorage: { [OAUTH_RECORD_NAME]: oauthRecord } });
+      ready(stub.api);
+
+      await send(stub.api, { type: TYPE_SET_KEY, success: true, msg: KEY });
+
+      expect(stub.posted.filter((m) => m.type === TYPE_CREDENTIAL).at(-1)?.payload).toEqual({
+        credential: { kind: "oauth", token: TOKEN, scopes: oauthRecord.scopes, expiresAt: oauthRecord.expiresAt },
+        apiKey: KEY,
+      });
+    });
+
+    it("does NOT send a signed-in user to the intro page when they remove their key", async () => {
+      const stub = makeFigmaStub({
+        clientStorage: { [API_KEY_NAME]: KEY, [OAUTH_RECORD_NAME]: oauthRecord },
+      });
+      vi.stubGlobal("figma", stub.api);
+      vi.stubGlobal("__html__", "<html>");
+      ready(stub.api);
+      const showUiCallsBefore = stub.showUiCalls.length;
+
+      await send(stub.api, { type: TYPE_REMOVE_KEY, success: true });
+
+      expect(stub.clientStorage.has(API_KEY_NAME)).toBe(false);
+      expect(stub.clientStorage.has(OAUTH_RECORD_NAME)).toBe(true);
+      expect(stub.showUiCalls).toHaveLength(showUiCallsBefore);
+      expect(stub.posted.filter((m) => m.type === TYPE_CREDENTIAL).at(-1)?.payload).toMatchObject({
+        credential: { kind: "oauth" },
+        apiKey: "",
+      });
+      vi.unstubAllGlobals();
     });
   });
 });

@@ -1,11 +1,12 @@
 import {
-  API_KEY_NAME,
   TAB_REMOVE_BACKGROUND,
   TAB_REMOVE_BACKGROUND_INSTANTLY,
   TYPE_VALIDATE_KEY,
   WIDGET_HEIGHT_WITH_KEY,
   WIDGET_HEIGHT_WITHOUT_KEY,
 } from "@constants/index";
+import type { CredentialDescriptor } from "@app-types/credential";
+import { activeCredential } from "@services/authSession";
 import { describeSelection } from "@services/ImageProcessor";
 import { setMessageListeners } from "@services/MessageListeners";
 import {
@@ -27,7 +28,7 @@ import openPanel from "./openPanel";
  */
 const VALIDATE_KEY_TIMEOUT_MS = 8000;
 
-const validateKey = (apiKey: string): Promise<boolean> =>
+const validateKey = (credential: CredentialDescriptor): Promise<boolean> =>
   new Promise((resolve) => {
     let settled = false;
 
@@ -44,7 +45,7 @@ const validateKey = (apiKey: string): Promise<boolean> =>
     };
 
     addUiMessageHandler(figma, handler);
-    postToUi(figma, { type: TYPE_VALIDATE_KEY, payload: apiKey });
+    postToUi(figma, { type: TYPE_VALIDATE_KEY, payload: credential });
 
     // Nothing after this point runs until the promise settles, so an answer that
     // never comes — an offline user, a stalled balance request — would leave the
@@ -59,7 +60,7 @@ const validateKey = (apiKey: string): Promise<boolean> =>
   });
 
 const RemoveBackgroundController = async (isFromIntroController: boolean) => {
-  const apiKey = await figma.clientStorage.getAsync(API_KEY_NAME);
+  const { credential } = await activeCredential(figma);
 
   // First pass: a hidden UI, purely to run the key check. The panel is not shown
   // until the destination is known, so the user never sees a tab appear and change.
@@ -67,12 +68,13 @@ const RemoveBackgroundController = async (isFromIntroController: boolean) => {
   beginUiSession(figma);
   setMessageListeners(figma);
 
-  const isKeyValid = await validateKey(apiKey);
+  const isCredentialValid = credential ? await validateKey(credential) : false;
 
   // Asks the descriptor whether an image is selected rather than decoding the whole
   // image to answer a yes/no question, which is what this did on every launch.
   const selected = describeSelection(figma);
-  const canRemoveInstantly = isKeyValid && !!selected?.hasImageFill && !isFromIntroController;
+  const canRemoveInstantly =
+    isCredentialValid && !!selected?.hasImageFill && !isFromIntroController;
 
   await openPanel({
     tab: canRemoveInstantly ? TAB_REMOVE_BACKGROUND_INSTANTLY : TAB_REMOVE_BACKGROUND,
@@ -80,7 +82,7 @@ const RemoveBackgroundController = async (isFromIntroController: boolean) => {
     visible: !canRemoveInstantly,
     ...(canRemoveInstantly
       ? {}
-      : { height: apiKey ? WIDGET_HEIGHT_WITH_KEY : WIDGET_HEIGHT_WITHOUT_KEY }),
+      : { height: credential ? WIDGET_HEIGHT_WITH_KEY : WIDGET_HEIGHT_WITHOUT_KEY }),
   });
 };
 
