@@ -1,21 +1,21 @@
-# BG Remover & Image Enhancer by Picsart — Figma plugin
+# AI Image Generator & Editor by Picsart — Figma plugin
 
 A Figma plugin that calls the Picsart Creative APIs to remove backgrounds, enhance and upscale
 images, and generate images from a text prompt. TypeScript + React, bundled with webpack.
 
-[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) is the detailed reference — the two runtime
-contexts, the postMessage seam, and the traps. This file is the short version.
+This file is the reference: the two runtime contexts, the postMessage seam, and the traps
+are all below. There is no separate architecture document.
 
-This pointer used to name `CLAUDE.md`, which `.gitignore` excludes along with every other
-agent file. The architecture doc is tracked so that a clone contains the document a clone is
-told to read.
+A pointer here used to name `CLAUDE.md`, which `.gitignore` excludes along with every other
+agent file — so anything a clone needs to be told has to live in a tracked file like this
+one.
 
 ## Running it
 
 ```bash
 npm install
 npm run watch      # development build, rebuilds on change
-npm run gate       # typecheck + lint + tests + production build. Run before pushing.
+npm run gate       # typecheck + lint + tests + both builds + two bundle checks. Run before pushing.
 ```
 
 Other scripts:
@@ -45,22 +45,30 @@ Node 20 (see `.nvmrc`).
 In watch mode, sandbox changes (`src/code.ts`) hot-reload. UI changes (`src/ui.tsx`) need the
 plugin re-run.
 
-### You need a Picsart API key, and it is not optional
+### You need a credential, and it is not optional
 
-`src/ui.tsx` gates every tab behind `apiKey &&`, so **until a key is stored, no panel renders
-at all** — the plugin shows only its intro screen. This is the step that decides whether the
-first five minutes with this repo work, and it was documented nowhere.
+`src/ui.tsx` gates every tab behind a truthy credential, so **until one is stored, no panel
+renders at all** — the plugin shows only its chooser screen. This is the step that decides
+whether the first five minutes with this repo work, and it was documented nowhere.
+
+There are **two** kinds, held in two independent `clientStorage` slots, and nothing migrates
+between them. One is active at a time and a Picsart session takes precedence; both are
+retained, so signing out falls back to a retained key rather than locking the plugin.
+
+**Paste a developer API key** (`picsart_api_key`) — **this is the path that works today**:
 
 1. Get a key from [console.picsart.io](https://console.picsart.io) → **Apps**. It is a paid
    product; the free allowance is small and **every button in this plugin spends credits**.
-2. Launch the plugin, paste the key into the intro screen, submit.
-3. It is stored in `figma.clientStorage` under `picsart_api_key`, per user and per plugin — not
-   per file. Clear it from the **Set API Key** tab.
+2. Launch the plugin, paste the key into the chooser, submit.
+3. Change or remove it on the **Account Balance** tab, which is where the key form lives —
+   it had a tab of its own ("Set API Key") until that route was folded into Account.
+   **Remove API key** did not exist for a long time while this line claimed it did, and it
+   is shown only when a key is actually stored. Removing it does **not** end a Picsart
+   session; the two are independent.
 
-**Everything that needs a key also costs money to exercise.** That is why
-`npm run test:run` — 189 tests, under two seconds, no key — is the loop to work in, and why
-the tests stub at the `@api` and `@utils/placement` boundaries rather than reaching the network.
-Manual QA against the real endpoints is the last step, not the first.
+**Sign in with a Picsart account** (`picsart_oauth`) — **the mechanism is in place and has not
+yet been confirmed against a live Figma session.** Treat a real end-to-end sign-in as the
+outstanding step before this is offered to anyone.
 
 ## The one thing to understand first
 
@@ -114,7 +122,9 @@ not the keyboard.
 
 **Never `figma.ui.postMessage` directly.** Use `postToUi()` from `services/UiBridge.ts`. It
 queues until the UI reports it has mounted, which replaced a `setTimeout(..., 400)` guess in
-every controller. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) → "The seam".
+every controller. `services/__tests__/UiBridge.test.ts` is the spec for that seam: a dropped
+boot message shows up as a blank panel with no error, so those tests are the only thing
+standing between you and that.
 
 ## Tests
 
@@ -125,8 +135,32 @@ its path aliases from `tsconfig.json`, so adding an alias needs no change there.
 Note that `createImageBitmap` does not exist in jsdom and `Image.onload` never fires for blob
 URLs, so anything needing a real image decode is manual QA, not a unit test.
 
+**Two tests talk to the real API, and both skip themselves unless you opt in**, so
+`npm run gate` is unaffected:
+
+```bash
+# Spends credits — one count:1 edit job.
+PICSART_LIVE_KEY=paat-… npx vitest run src/api/__tests__/liveEdit.test.ts
+
+# Spends nothing. Answers "does api.picsart.io accept a user bearer today?"
+PICSART_LIVE_TOKEN=eyJ… npx vitest run src/api/__tests__/liveOAuth.test.ts --silent=false
+```
+
+Both deliberately go through the plugin's own request path rather than hand-rolled `fetch`
+calls, and that is not a stylistic preference — a probe that bypasses the code proves the API
+works, not that the plugin does. `liveOAuth`'s first version built its credential without
+`expiresAt`, exercised a branch production never takes, and reported the wrong error message
+as the plugin's behaviour; matching `credentialFromRecord` exactly is what caught a live
+mislabel in `classifyTokenFailure`.
+
+Neither can tell you anything about CORS: node performs no preflight. `liveOAuth` therefore
+reads the preflight *directly* rather than inferring it from a request succeeding, and the
+guard for the request path itself is the header assertion in `editImage.test.ts` against
+`CORS_SAFE_REQUEST_HEADERS`.
+
 ## Contributing
 
 Branch per feature, Google TypeScript Style Guide, two approvals from code owners.
-`CONTRIBUTING.md` is generic Picsart-SDK boilerplate and does **not** describe this repo —
-it references `/tests/`, `/scripts/`, Python and Java, none of which exist here.
+`CONTRIBUTING.md` describes this repo: it carries the per-stage gate table and the Vitest
+layout. It used to be generic Picsart-SDK boilerplate referencing `/tests/`, Python and
+Java, and this line used to warn you off it.

@@ -1,14 +1,17 @@
 import React, { useEffect } from "react";
 import { sendMessageToSandBox } from "@api/index";
-import { PRICING } from "@constants/url";
 import { BtnType } from "@app-types/enums";
 import { Button } from "@components/index";
+import useBalanceRecovery from "@hooks/useBalanceRecovery";
+import type { CredentialInput } from "@app-types/credential";
+import { asCredential } from "@api/customFetch";
+import { balanceModeLabel } from "@ui_constants/texts";
 import { useBalance } from "../../context/BalanceContext";
 import { TYPE_GET_BALANCE } from "@constants/types";
 import "./styles.scss";
 
 interface Props {
-  gottenKey: string;
+  gottenKey: CredentialInput;
   isCreditsInsufficient: boolean;
   setIsCreditsInsufficient: (status: boolean) => void;
 }
@@ -19,37 +22,40 @@ const BalanceBanner: React.FC<Props> = ({
   setIsCreditsInsufficient,
 }) => {
   const { balance } = useBalance();
+  const { openPricing } = useBalanceRecovery(gottenKey, isCreditsInsufficient);
+
+  const mode = asCredential(gottenKey).kind;
 
   useEffect(() => {
     sendMessageToSandBox(true, "", TYPE_GET_BALANCE);
     setIsCreditsInsufficient(balance <= 0);
-  }, [ gottenKey ]);
+  }, [ asCredential(gottenKey).token ]);
 
   return (
     // <div className={`balance-container ${isCreditsInsufficient ? 'full-width' : ''}`}>
     <div className={"balance-container"}>
       <div className="text-container">
-        <span className="balance-text">Balance</span>
+        <span className="balance-text">{balanceModeLabel(mode)}</span>
         <span className="credits-text">{balance} credits </span>
       </div>
       {isCreditsInsufficient ? (
         <div style={{ width: 120, height: 30 }}>
           <Button
             type={BtnType.ADD_CREDITS}
-            cb={() => window.open(PRICING, "_blank")}
+            cb={openPricing}
             tabIndex={0}
           />
         </div>
       ) : (
         <div
           className="plus-container"
-          onClick={() => window.open(PRICING, "_blank")}
+          onClick={openPricing}
           tabIndex={0}
           role="button"
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
-              window.open(PRICING, "_blank");
+              openPricing();
             }
           }}
           title="Add more credits"

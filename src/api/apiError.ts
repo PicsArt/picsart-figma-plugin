@@ -1,10 +1,16 @@
 import {
+    BEARER_REJECTED_ERR,
+    CREDENTIAL_HOST_ALLOWLIST,
     KEY_WRONG_ERR,
+    REQUIRED_OAUTH_SCOPES,
     RESULT_DOWNLOAD_FAILED_ERR,
     RESULT_HOST_BLOCKED_ERR,
     RESULT_HOST_ALLOWLIST,
+    SESSION_EXPIRED_ERR,
+    SESSION_SCOPE_ERR,
     TOKEN_ERR,
 } from "@constants/index";
+import type { CredentialDescriptor, TokenFailure } from "@app-types/credential";
 
 /**
  * Turns a failed Picsart response into text a user can act on.
@@ -48,9 +54,8 @@ export const isRetryableStatus = (status: number): boolean =>
 export interface ApiFailure {
     success: false;
     msg: string;
-    // False for a 4xx. Callers use it to decide whether "try again" is honest
-    // advice; nothing in this repo retries automatically.
     retryable: boolean;
+    tokenFailure?: TokenFailure;
 }
 
 const asNonEmptyString = (value: unknown): string | null =>
@@ -88,25 +93,60 @@ export const readApiText = (body: unknown): string | null => {
 export const isTokenError = (status: number, body: unknown): boolean =>
     status === 401 || (!!body && (body as ApiErrorBody).message === TOKEN_ERR);
 
-/**
- * @param rejected  fallback for a request the API refused and will refuse again
- * @param transient fallback for a failure that a later attempt could survive
- */
+const hasRequiredScopes = (credential: CredentialDescriptor): boolean => {
+    if (!credential.scopes) return true;
+    return REQUIRED_OAUTH_SCOPES.every(
+        (needed) => (credential.scopes as readonly string[]).indexOf(needed) !== -1
+    );
+};
+
+export const classifyTokenFailure = (
+    credential?: CredentialDescriptor
+): TokenFailure => {
+    if (!credential || credential.kind === "apikey") return "wrong-key";
+    if (!hasRequiredScopes(credential)) return "missing-scope";
+    if (credential.refreshed) return "bearer-rejected";
+    const expiresAt = credential.expiresAt;
+    if (expiresAt !== undefined && expiresAt > Date.now()) return "bearer-rejected";
+    return "session-expired";
+};
+
+const TOKEN_FAILURE_MESSAGES: { [K in TokenFailure]: string } = {
+    "wrong-key": KEY_WRONG_ERR,
+    "session-expired": SESSION_EXPIRED_ERR,
+    "missing-scope": SESSION_SCOPE_ERR,
+    "bearer-rejected": BEARER_REJECTED_ERR,
+};
+
+export const tokenFailureMessage = (failure: TokenFailure): string =>
+    TOKEN_FAILURE_MESSAGES[failure];
+
+export const isRefreshableTokenFailure = (failure: TokenFailure): boolean =>
+    failure === "session-expired";
+
 export const describeApiFailure = ({
     status,
     body,
     rejected,
     transient,
+    credential,
 }: {
     status: number;
     body: unknown;
     rejected: string;
     transient: string;
+    credential?: CredentialDescriptor;
 }): ApiFailure => {
     if (isTokenError(status, body)) {
         // A wrong key is not "please try again" territory either, and the raw
         // "token_error" used to reach the user verbatim in the Generate tab.
-        return { success: false, msg: KEY_WRONG_ERR, retryable: false };
+        const tokenFailure = classifyTokenFailure(credential);
+        return {
+            success: false,
+            msg: tokenFailureMessage(tokenFailure),
+            retryable: isRefreshableTokenFailure(tokenFailure),
+            tokenFailure,
+        };
     }
 
     const retryable = isRetryableStatus(status);
@@ -136,19 +176,14 @@ export const describeTransientFailure = (transient: string): ApiFailure => ({
 export const isAbortError = (error: unknown): boolean =>
     !!error && typeof error === "object" && (error as { name?: string }).name === "AbortError";
 
-/**
- * Whether a result URL points at a host the plugin is allowed to fetch.
- *
- * Compared by origin prefix rather than by parsing, because `new URL()` is not
- * available in every realm this code has run in, and a prefix match on
- * `https://host` followed by `/` or end-of-string cannot be fooled by a
- * lookalike hostname the way `startsWith("https://cdn.picsart.io")` alone could
- * (`https://cdn.picsart.io.evil.test/x` fails this, and passes that).
- */
+const isOnOneOf = (url: string, hosts: readonly string[]): boolean =>
+    hosts.some((host) => url === host || url.indexOf(`${host}/`) === 0);
+
 export const isAllowedResultHost = (url: string): boolean =>
-    RESULT_HOST_ALLOWLIST.some(
-        (host) => url === host || url.indexOf(`${host}/`) === 0
-    );
+    isOnOneOf(url, RESULT_HOST_ALLOWLIST);
+
+export const mayReceiveCredential = (url: string): boolean =>
+    isOnOneOf(url, CREDENTIAL_HOST_ALLOWLIST);
 
 /**
  * Fetch the bytes a paid endpoint pointed at.

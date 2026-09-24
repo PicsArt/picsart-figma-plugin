@@ -15,13 +15,16 @@ import { Button, ImageSelectionBanner, LoadingSpinner, PanelFooter } from "@comp
 import { SelectField } from "@ui/index";
 import usePluginHeight from "@hooks/usePluginHeight";
 import useSelectedImage, { describeBytesFailure } from "@hooks/useSelectedImage";
+import { useCredential } from "../../context/CredentialContext";
 import resolveActionButton from "@utils/actionButton";
+import { withCredentialRescue } from "@utils/credentialRescue";
 import { applyImageToCanvas } from "@utils/placement";
 import { BannerStance, BtnType } from "@app-types/enums";
 import "./styles.scss";
+import type { CredentialInput } from "@app-types/credential";
 
 interface UpscaleProps {
-  gottenKey: string;
+  gottenKey: CredentialInput;
   isCreditsInsufficient: boolean;
   isOffline: boolean;
 }
@@ -59,6 +62,15 @@ const Upscale: React.FC<UpscaleProps> = ({
 }) => {
   const { selection, hasImage, descriptor, takeImage } = useSelectedImage();
   const [loading, setLoading] = useState<boolean>(false);
+
+  const { getCredential, refreshCredential } = useCredential();
+  const credentialSource = () => getCredential() ?? gottenKey;
+  const rescue = {
+    credential: getCredential,
+    refresh: refreshCredential,
+    fallback: gottenKey,
+  };
+
 
   const [scaleFactor, setScaleFactor] = useState(2);
   const factorOptions = usableFactors(descriptor?.width ?? 0, descriptor?.height ?? 0);
@@ -102,7 +114,10 @@ const Upscale: React.FC<UpscaleProps> = ({
 
     sendMessageToSandBox(true, PROCESSING_IMAGE, TYPE_NOTIFY);
 
-    const response = await enhanceImage(picked.bytes, gottenKey, factor, format);
+    const response = await withCredentialRescue(
+      (credential) => enhanceImage(picked.bytes, credential, factor, format),
+      rescue
+    );
     if (!response.success) {
       // The API's own reason, not a fixed string. A 422 here names the ceiling
       // that was hit ("would exceed 23MP after 2x upscale"), which tells the user
@@ -130,7 +145,7 @@ const Upscale: React.FC<UpscaleProps> = ({
     // `x-picsart-credit-available` is the balance at the moment the request was
     // AUTHORIZED, measured pre-charge on this endpoint too — so posting it left the
     // credits strip one job stale, and `isCreditsInsufficient` derives from it.
-    await refreshBalance(gottenKey);
+    await refreshBalance(credentialSource());
   };
 
   const handleOnChange = (val: string) => {

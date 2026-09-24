@@ -1,0 +1,92 @@
+@use "@styles/variables" as *;
+@use "@styles/colors" as *;
+
+.signin {
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: $gap-medium;
+}
+
+.signin-actions {
+  display: flex;
+  flex-direction: column;
+  gap: $gap-small;
+  margin-top: $gap-small;
+}
+
+@mixin signin-theme($status-color, $note-color, $error-color, $input-color, $input-background) {
+  .signin-status {
+    margin: 0;
+    font-family: "Inter";
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.16px;
+    color: $status-color;
+  }
+
+  .signin-note {
+    margin: 0;
+    font-family: "Inter";
+    font-weight: 500;
+    font-size: 11px;
+    letter-spacing: 0.16px;
+    color: $note-color;
+  }
+
+  .signin-error {
+    margin: 0;
+    font-family: "Inter";
+    font-weight: 500;
+    font-size: 12px;
+    letter-spacing: 0.16px;
+    color: $error-color;
+  }
+
+  .signin-input {
+    box-sizing: border-box;
+    font-family: "Inter";
+    font-weight: 500;
+    font-size: 11px;
+    letter-spacing: 0.16px;
+    padding: $padding-main;
+    height: 32px;
+    width: 100%;
+    border: 1px solid $color-border;
+    border-radius: 8px;
+    color: $input-color;
+    background: $input-background;
+    transition: background 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+
+    &:hover {
+      border: 1px solid #6929d1;
+      box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    &:focus {
+      border: 1px solid #6929d1;
+      box-shadow: 0px 0px 8px rgba(0, 0, 0, 0.2);
+      outline: none;
+    }
+  }
+}
+
+.figma-light {
+  @include signin-theme(
+    $light-color-option-active,
+    $light-color-option-deactive,
+    $light-color-error-text,
+    $light-color-option-active,
+    #ffffff
+  );
+}
+
+.figma-dark {
+  @include signin-theme(
+    $dark-color-option-active,
+    $dark-color-option-deactive,
+    $dark-color-error-text,
+    $dark-color-option-active,
+    #383838
+  );
+}

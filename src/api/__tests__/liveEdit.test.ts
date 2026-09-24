@@ -14,37 +14,6 @@ import type { PreparedSource } from "@utils/imageBinary";
 // bundle, so it never reaches the iframe.
 import { deflateSync } from "node:zlib";
 
-/**
- * The one test in this repo that talks to the real API. **It spends credits.**
- *
- * It skips itself unless `PICSART_LIVE_KEY` is set, so `npm run gate` and CI are
- * unaffected. Run it deliberately, when you have changed something on the request or
- * response path:
- *
- * ```bash
- * PICSART_LIVE_KEY=paat-... npx vitest run src/api/__tests__/liveEdit.test.ts
- * ```
- *
- * **Why it is worth having at all.** The other 193 tests assert against canned
- * responses, which proves the code handles the shapes it was told to expect and
- * nothing about whether those are the shapes the server sends. Two load-bearing
- * questions about `figma/painting/edit` could not be answered from any document — see
- * `docs/api/genai-endpoints.md` — and a third thing was simply assumed wrong by every
- * paid path in the plugin until this ran. One `count: 1` job is a cheap standing check
- * against all three.
- *
- * It deliberately uses the plugin's own `editImage`, `pollInference` and
- * `fetchResultBytes` rather than hand-rolled requests. A probe that bypasses the code
- * proves the API works, not that the plugin does.
- *
- * **What it CANNOT tell you, and this bit its author.** It runs in node, which performs
- * no CORS preflight. The original version of this file passed while `editImage` sent
- * `Prefer: respond-async` — a header the gateway does not allow — so the call was dead
- * in the iframe and green here. Browser reachability is not testable from node at all;
- * the guard for it is the header assertion in `editImage.test.ts` plus
- * `CORS_SAFE_REQUEST_HEADERS`.
- */
-
 const KEY = process.env.PICSART_LIVE_KEY;
 
 // A 64x64 PNG built inline: no fixture file to keep in sync, and comfortably over the
@@ -122,7 +91,7 @@ describe.skipIf(!KEY)("live: the shipped edit path, end to end", () => {
     const outcome = await pollInference({
       paths: EDITIMAGE_POLL_PATHS,
       inferenceId: started.inferenceId as string,
-      key,
+      credential: key,
       transient: EDIT_IMAGE_FAILED_ERR,
       rejected: EDIT_IMAGE_FAILED_ERR,
     });

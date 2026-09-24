@@ -1,18 +1,14 @@
-/**
- * CustomSessionStorage is a singleton class that simulates sessionStorage
- * for storing the user's balance during a single session of the Figma plugin.
- * Since Figma does not support sessionStorage, this class provides a single instance
- * to persist balance data until the plugin is reloaded.
- */
-
+import { NO_CREDENTIAL_IDENTITY } from "./credentialIdentity";
 
 export default class CustomSessionStorage {
     private static sessionStorage?: CustomSessionStorage;
     private balance: number;
+    private identity: string;
     private isCurrentSession: boolean;
 
     private constructor() {
         this.balance = 0;
+        this.identity = NO_CREDENTIAL_IDENTITY;
         this.isCurrentSession = false;
     }
 
@@ -23,22 +19,27 @@ export default class CustomSessionStorage {
         return CustomSessionStorage.sessionStorage;
     }
 
-    public setBalance(incomingBalance: number): void {
+    public setBalance(incomingBalance: number, identity: string): void {
+        if (identity !== this.identity) this.isCurrentSession = false;
+        this.identity = identity;
         this.balance = incomingBalance;
     }
 
-    public getBalance(): number {
-        return this.balance;
+    public balanceFor(identity: string): number | undefined {
+        return identity === this.identity ? this.balance : undefined;
     }
 
-    public setCurrentSession() {
-        this.isCurrentSession = true;
+    public isWarmFor(identity: string): boolean {
+        return this.isCurrentSession && identity === this.identity;
     }
 
-    public getCurrentSession() {
-        return this.isCurrentSession;
+    public markWarm(identity: string): void {
+        if (identity === this.identity) this.isCurrentSession = true;
+    }
+
+    public reset(): void {
+        this.balance = 0;
+        this.identity = NO_CREDENTIAL_IDENTITY;
+        this.isCurrentSession = false;
     }
 }
-
-const sessionStorage: CustomSessionStorage = CustomSessionStorage.getInstance();
-sessionStorage.getBalance();

@@ -39,3 +39,6 @@ CLAUDE.md
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+/spike
+.gstack/

@@ -1,5 +1,5 @@
 {
-  "name": "BG Remover & Image Enhancer by Picsart",
+  "name": "AI Image Generator & Editor by Picsart",
   "id": "1448229969327565675",
   "api": "1.0.0",
   "main": "dist/code.js",
@@ -19,7 +19,13 @@
       "https://aicdn.picsart.com",
       "https://picsart.io",
       "https://cdn.picsart.io",
-      "https://www.gravatar.com"
+      "https://www.gravatar.com",
+      "https://auth.picsart.com",
+      "https://accounts.picsart.com"
+    ],
+    "devAllowedDomains": [
+      "http://localhost:8080",
+      "https://api.picsart.com"
     ]
   },
   "menu": [

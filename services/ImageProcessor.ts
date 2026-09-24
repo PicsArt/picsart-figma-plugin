@@ -560,21 +560,6 @@ const canHostPlacement = (parent: BaseNode | null): boolean => {
   return "appendChild" in parent;
 };
 
-/**
- * Place edit-mode candidates beside the layer they were made from.
- *
- * Non-destructive by decision: `/painting/edit` returns `count` candidates (2 by
- * default), and a one-image destination that overwrote the source would fight the API
- * and throw away work the user paid for.
- *
- * The full layout contract — gap, direction, ordering, sizing, naming, second-run
- * behaviour, the three parents that cannot host a placement, and why the viewport
- * only sometimes moves — is `docs/design/edit-mode-canvas-layout.md`. Read that
- * before changing any number in here.
- *
- * Deliberately not modelled on `addGeneratedImages` below it, which is 200 lines of
- * manual layout arithmetic around a shared gallery frame.
- */
 export const placeBesideSource = async (
   figma: PluginAPI,
   options: { images: Uint8Array[]; prompt: string; sourceNodeId: string }

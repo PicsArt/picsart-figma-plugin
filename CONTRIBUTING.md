@@ -1,22 +1,21 @@
 # Contributing
 
-Thank you for your interest in contributing to the **BG Remover & Image Enhancer by
+Thank you for your interest in contributing to the **AI Image Generator & Editor by
 Picsart** Figma plugin.
 
 This file used to be the generic Picsart Creative APIs SDK guide. It described a
-`/tests/` directory, a `/scripts/` directory, an `/examples/` directory and Python and
-Java style guides — none of which exist here. It is the file GitHub surfaces in the
-contribute flow, so a contributor's first instruction was to set up the wrong toolchain.
-What follows describes this repository.
+`/tests/` directory, an `/examples/` directory and Python and Java style guides — none of
+which exist here; tests live in `__tests__/` beside the code, and this is a TypeScript
+repo. It is the file GitHub surfaces in the contribute flow, so a contributor's first
+instruction was to set up the wrong toolchain. What follows describes this repository.
 
 ## Before you start
 
 - **[`README.md`](README.md)** — build, load into Figma, and the API-key step that
   otherwise leaves you looking at a blank panel.
-- **[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)** — the two runtime contexts, the
-  postMessage seam, and the traps. Read this before touching anything that crosses
-  between the sandbox and the UI, which is most things.
-- **[`TODOS.md`](TODOS.md)** — deferred work, with enough context to pick up cold.
+  It also carries the two runtime contexts, the postMessage seam and the traps — read
+  that part before touching anything that crosses between the sandbox and the UI, which
+  is most things.
 
 ## The one thing to internalise
 
@@ -31,7 +30,7 @@ the comments explaining it, exist because one of those happened.
 |---|---|
 | `src/` | the UI iframe — React, `fetch`, **no `figma`** |
 | `constants/` `controllers/` `routes/` `services/` | the sandbox — `figma.*`, restricted network |
-| `docs/` | architecture and design specs |
+| `scripts/` | gate checks that are not lint, tests or a build |
 
 Sandbox code lives outside `src/` deliberately. An eslint rule blocks the `figma` global
 under `src/**` because TypeScript will not catch it there.
@@ -42,7 +41,7 @@ under `src/**` because TypeScript will not catch it there.
 npm run gate
 ```
 
-Five stages, and **none of them subsumes another**:
+Seven stages, and **none of them subsumes another**:
 
 | Stage | The only thing that catches |
 |---|---|
@@ -50,12 +49,16 @@ Five stages, and **none of them subsumes another**:
 | `lint` | Figma-plugin API mistakes, e.g. `getNodeById` under `documentAccess: dynamic-page` |
 | `test:run` | behavioural regressions |
 | `build` | a comment ending in the word "import", which stops the plugin loading — production strips comments, so `build:prod` cannot see it |
+| `check:bundle` | UI-only code in the sandbox bundle. Reads the **dev** build on purpose: production tree-shaking removes the violation, so the only bundle carrying it is the one `npm run watch` feeds to Figma |
+| `check:eval` | whether `dist/code.js` **runs at all**. Everything above it reads the source or imports modules directly, so a bundle that throws on its first line passed the whole gate — and the symptom in Figma is a plugin that never starts. Caught live once: `npm run watch` wrote a bundle mid-edit with a constant referenced above its own declaration, and Figma loaded it |
 | `build:prod` | the real production config |
 
-A change that passes four of the five can still ship broken. `build:prod` should finish
+A change that passes six of the seven can still ship broken. `build:prod` should finish
 with **zero warnings**; treat a new one as a real finding.
 
-CI runs the same gate on every pull request.
+**Nothing runs this automatically.** There is no CI on this repository and `dist/` is
+gitignored, so the gate is only ever as good as the last person who remembered to run it.
+Run it before you push, and again before you publish.
 
 ## Tests
 

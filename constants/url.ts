@@ -1,3 +1,5 @@
+import { AUTH_ORIGIN } from "./auth";
+
 export const PICSARTURL = "https://api.picsart.io/v1/" as const;
 export const GENAIURL = "https://genai-api.picsart.io/v1/" as const;
 export const REMOVEBG = "figma/removebg" as const;
@@ -9,6 +11,9 @@ export const BALANACE = "balance" as const;
 export const HEADERAPI = "X-Picsart-API-Key" as const;
 export const HEADER_PLUGIN_NAME_KEY = "X-Picsart-Plugin" as const;
 export const HEADER_PLUGIN_NAME_VALUE = "Figma" as const;
+
+export const HEADER_AUTHORIZATION = "Authorization" as const;
+export const BEARER_PREFIX = "Bearer " as const;
 
 export const CORS_SAFE_REQUEST_HEADERS = [
   "origin",
@@ -32,18 +37,21 @@ export const CORS_SAFE_REQUEST_HEADERS = [
   "x-touchpoint-referrer",
   "segments",
 ] as const;
+
 export const EDIT_MODE_ASYNC = "async" as const;
 
-/**
- * Keep this a subset of the manifest allowlist. A host here that the manifest does
- * not carry cannot be fetched anyway.
- */
 export const RESULT_HOST_ALLOWLIST = [
   "https://cdn.picsart.io",
   "https://aicdn.picsart.com",
   "https://project-files.picsart.com",
   "https://api.picsart.io",
   "https://genai-api.picsart.io",
+] as const;
+
+export const CREDENTIAL_HOST_ALLOWLIST = [
+  "https://api.picsart.io",
+  "https://genai-api.picsart.io",
+  AUTH_ORIGIN,
 ] as const;
 
 // Links

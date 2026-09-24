@@ -40,13 +40,16 @@ import {
 import { SelectField, NumberField } from "@ui/index";
 import usePluginHeight from "@hooks/usePluginHeight";
 import useSelectedImage, { describeBytesFailure } from "@hooks/useSelectedImage";
+import { useCredential } from "../../context/CredentialContext";
 import resolveActionButton from "@utils/actionButton";
+import { withCredentialRescue } from "@utils/credentialRescue";
 import { applyImageToCanvas } from "@utils/placement";
 import { BannerStance, BtnType } from "@app-types/enums";
 import "./styles.scss";
+import type { CredentialInput } from "@app-types/credential";
 
 interface RemoveBackgroundProps {
-  gottenKey: string;
+  gottenKey: CredentialInput;
   isCreditsInsufficient: boolean;
   isOffline: boolean;
 }
@@ -58,6 +61,15 @@ const RemoveBackground: React.FC<RemoveBackgroundProps> = ({
 }) => {
   const { selection, hasImage, takeImage } = useSelectedImage();
   const [loading, setLoading] = useState<boolean>(false);
+
+  const { getCredential, refreshCredential } = useCredential();
+  const credentialSource = () => getCredential() ?? gottenKey;
+  const rescue = {
+    credential: getCredential,
+    refresh: refreshCredential,
+    fallback: gottenKey,
+  };
+
   const [showAdvancedSettings, setShowAdvancedSettings] = useState<boolean>(false);
 
   const [model, setModel] = useState<string>(DEFAULT_REMOVEBG_MODEL);
@@ -107,23 +119,27 @@ const RemoveBackground: React.FC<RemoveBackgroundProps> = ({
 
     sendMessageToSandBox(true, PROCESSING_IMAGE, TYPE_NOTIFY);
 
-    const response = await removeBackgroundApi(picked.bytes, gottenKey, {
-      model,
-      output_type: outputType,
-      format,
-      scale: isCutout ? scale : undefined,
-      auto_center: isCutout && autoCenter,
-      bg_color: isCutout ? bgColor.trim() || undefined : undefined,
-      bg_blur: isCutout ? bgBlur : undefined,
-      stroke_size: isCutout ? strokeSize : undefined,
-      stroke_color: strokeColor,
-      stroke_opacity: strokeOpacity,
-      shadow: isCutout ? shadow : undefined,
-      shadow_opacity: shadowOpacity,
-      shadow_blur: shadowBlur,
-      shadow_offset_x: shadowOffsetX,
-      shadow_offset_y: shadowOffsetY,
-    });
+    const response = await withCredentialRescue(
+      (credential) =>
+        removeBackgroundApi(picked.bytes, credential, {
+          model,
+          output_type: outputType,
+          format,
+          scale: isCutout ? scale : undefined,
+          auto_center: isCutout && autoCenter,
+          bg_color: isCutout ? bgColor.trim() || undefined : undefined,
+          bg_blur: isCutout ? bgBlur : undefined,
+          stroke_size: isCutout ? strokeSize : undefined,
+          stroke_color: strokeColor,
+          stroke_opacity: strokeOpacity,
+          shadow: isCutout ? shadow : undefined,
+          shadow_opacity: shadowOpacity,
+          shadow_blur: shadowBlur,
+          shadow_offset_x: shadowOffsetX,
+          shadow_offset_y: shadowOffsetY,
+        }),
+      rescue
+    );
     if (!response.success) {
       // Show what the API said. Validation errors here name the offending
       // setting, which a fixed "please try again" hid behind a retry that
@@ -142,7 +158,7 @@ const RemoveBackground: React.FC<RemoveBackgroundProps> = ({
     await applyImageToCanvas({ bytes: response.msg, nodeId: picked.nodeId });
     // Re-read rather than trusting the response header — it is pre-charge. See
     // extractCreditsFromResponse in src/api/index.ts for the measurement.
-    await refreshBalance(gottenKey);
+    await refreshBalance(credentialSource());
     setLoading(false);
   };
 

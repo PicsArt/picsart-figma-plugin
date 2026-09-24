@@ -8,9 +8,10 @@ import {
 } from "@constants/index";
 import useSelectedImage, { describeBytesFailure } from "@hooks/useSelectedImage";
 import { applyImageToCanvas } from "@utils/placement";
+import type { CredentialInput } from "@app-types/credential";
 
 interface RemoveBackgroundProps {
-  gottenKey: string;
+  gottenKey: CredentialInput;
 }
 
 /**

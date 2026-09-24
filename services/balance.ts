@@ -1,23 +1,11 @@
+import { getBalance } from "@api/getBalance";
+import { TYPE_GET_BALANCE } from "@constants/index";
+import type { CredentialDescriptor } from "@app-types/credential";
 import CustomSessionStorage from "./CustomSessionStorage";
+import { credentialIdentity } from "./credentialIdentity";
+import { postToUi } from "./UiBridge";
 
-/**
- * The one guard that decides what may be cached as the credit balance.
- *
- * This check existed in exactly one of the three places that write the balance.
- * `MessageListeners` had it, with a comment explaining the poisoning it prevents;
- * `openPanel` and `IntroController` cast whatever arrived straight to `number`.
- *
- * The failure it prevents: the balance crosses postMessage as a string and
- * `getBalance` used to return an error message in the same field as a credit count,
- * so a failed fetch cached `"API key is wrong"` or `undefined` for the rest of the
- * session — and nothing re-fetches. Downstream, `payload <= 0` on a string is
- * `false`, so every button stayed enabled and every paid call went ahead against a
- * balance nobody had actually read.
- *
- * @returns true when the value was accepted, so callers can decide whether the
- *          session is warm enough to stop re-fetching.
- */
-export const rememberBalance = (value: unknown): boolean => {
+export const rememberBalance = (value: unknown, identity: string): boolean => {
   // Guarded before Number(): Number(null) and Number([]) are both 0, and Number("")
   // is 0 too, so a missing balance would otherwise cache as "out of credits" and
   // send the user to the pricing page with credits in their account.
@@ -29,8 +17,48 @@ export const rememberBalance = (value: unknown): boolean => {
   const credits = Number(value);
   if (!Number.isFinite(credits)) return false;
 
-  CustomSessionStorage.getInstance().setBalance(credits);
+  CustomSessionStorage.getInstance().setBalance(credits, identity);
   return true;
+};
+
+const reads = new Map<string, Promise<void>>();
+
+export const resetBalanceReads = () => reads.clear();
+
+export const deliverBalance = (
+  pluginApi: PluginAPI,
+  credential: CredentialDescriptor | null | undefined
+): Promise<void> => {
+  const sessionStorage = CustomSessionStorage.getInstance();
+  const identity = credentialIdentity(credential ?? undefined);
+
+  if (!credential || sessionStorage.isWarmFor(identity)) {
+    postToUi(pluginApi, {
+      type: TYPE_GET_BALANCE,
+      payload: sessionStorage.balanceFor(identity) ?? 0,
+    });
+    return Promise.resolve();
+  }
+
+  const already = reads.get(identity);
+  if (already) return already;
+
+  const read = getBalance(credential)
+    .then((result) => {
+      const accepted = rememberBalance(result.success ? result.msg : undefined, identity);
+      if (accepted) sessionStorage.markWarm(identity);
+    })
+    .catch((error) => console.error("Couldn't read the credit balance:", error))
+    .then(() => {
+      postToUi(pluginApi, {
+        type: TYPE_GET_BALANCE,
+        payload: sessionStorage.balanceFor(identity) ?? 0,
+      });
+    })
+    .finally(() => reads.delete(identity));
+
+  reads.set(identity, read);
+  return read;
 };
 
 export default rememberBalance;

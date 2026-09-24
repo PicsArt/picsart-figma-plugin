@@ -1,4 +1,10 @@
 import { vi } from "vitest";
+import {
+  TYPE_EXCHANGE_REQUEST,
+  TYPE_EXCHANGE_RESULT,
+  TYPE_RANDOM_RESULT,
+  TYPE_REQUEST_RANDOM,
+} from "../../constants/index";
 
 /**
  * A PluginAPI stub covering only the members the functions under test touch.
@@ -102,6 +108,21 @@ const attachFindOne = (node: StubNode) => {
   node.children.forEach(attachFindOne);
 };
 
+export interface ExchangeRequest {
+  type: string;
+  nonce?: number;
+  grant?: string;
+  code?: string;
+  verifier?: string;
+  refresh_token?: string;
+  [key: string]: unknown;
+}
+
+export type ExchangeStubReply =
+  | { ok: true; body: Record<string, unknown> }
+  | { ok: false; error: string; status?: number; throttled?: boolean }
+  | "silent";
+
 export interface FigmaStub {
   api: PluginAPI;
   posted: { type: string; [key: string]: unknown }[];
@@ -130,7 +151,10 @@ export const makeFigmaStub = (options: {
   /** What figma.viewport.bounds reports. Wide enough to contain everything by default. */
   viewportBounds?: { x: number; y: number; width: number; height: number };
   clientStorage?: Record<string, unknown>;
+  storageFails?: { get?: boolean; set?: boolean; delete?: boolean };
   command?: string;
+  entropy?: "bytes" | "no-crypto" | "silent";
+  exchange?: ExchangeStubReply | ((msg: ExchangeRequest) => ExchangeStubReply);
 } = {}): FigmaStub => {
   const selection = options.selection ?? [];
   const extraPageNodes = options.pageNodes ?? [];
@@ -165,6 +189,53 @@ export const makeFigmaStub = (options: {
     findOne: (pred: (n: StubNode) => boolean) => pageChildren.find(pred) ?? null,
   };
 
+  let entropyCounter = 0;
+  const stubBytes = (length: number) => {
+    const bytes = new Uint8Array(length);
+    for (let i = 0; i < length; i++) bytes[i] = (entropyCounter * 31 + i * 7 + 13) & 0xff;
+    entropyCounter++;
+    return bytes;
+  };
+
+  const answerExchange = (msg: ExchangeRequest) => {
+    const configured = options.exchange ?? {
+      ok: false as const,
+      error: "this stub was not given an exchange reply",
+    };
+    const mode = typeof configured === "function" ? configured(msg) : configured;
+    if (mode === "silent") return;
+    const handler = api.ui.onmessage as ((m: unknown) => unknown) | undefined;
+    if (typeof handler !== "function") return;
+    handler({
+      type: TYPE_EXCHANGE_RESULT,
+      nonce: msg.nonce,
+      ...(mode.ok
+        ? { ok: true, ...mode.body }
+        : { ok: false, error: mode.error, status: mode.status, throttled: mode.throttled }),
+    });
+  };
+
+  const answerEntropy = (msg: { type: string; [key: string]: unknown }) => {
+    const mode = options.entropy ?? "bytes";
+    if (mode === "silent") return;
+    const handler = api.ui.onmessage as ((m: unknown) => unknown) | undefined;
+    if (typeof handler !== "function") return;
+    handler(
+      mode === "no-crypto"
+        ? {
+            type: TYPE_RANDOM_RESULT,
+            requestId: msg.requestId,
+            bytes: null,
+            reason: "no-crypto",
+          }
+        : {
+            type: TYPE_RANDOM_RESULT,
+            requestId: msg.requestId,
+            bytes: stubBytes(Number(msg.length) || 32),
+          }
+    );
+  };
+
   const api = {
     command: options.command ?? "",
     currentPage,
@@ -176,7 +247,11 @@ export const makeFigmaStub = (options: {
       scrollAndZoomIntoView: (nodes: StubNode[]) => scrolledInto.push(nodes),
     },
     ui: {
-      postMessage: (msg: { type: string }) => posted.push(msg),
+      postMessage: (msg: { type: string; [key: string]: unknown }) => {
+        posted.push(msg);
+        if (msg?.type === TYPE_REQUEST_RANDOM) answerEntropy(msg);
+        if (msg?.type === TYPE_EXCHANGE_REQUEST) answerExchange(msg);
+      },
       resize: () => undefined,
     },
     showUI: (...args: unknown[]) => showUiCalls.push(args),
@@ -186,9 +261,17 @@ export const makeFigmaStub = (options: {
     notify: (msg: string, opts?: { error?: boolean }) =>
       notified.push({ msg, error: !!opts?.error }),
     clientStorage: {
-      getAsync: async (name: string) => clientStorage.get(name),
+      getAsync: async (name: string) => {
+        if (options.storageFails?.get) throw new Error("clientStorage read failed");
+        return clientStorage.get(name);
+      },
       setAsync: async (name: string, value: unknown) => {
+        if (options.storageFails?.set) throw new Error("clientStorage write failed");
         clientStorage.set(name, value);
+      },
+      deleteAsync: async (name: string) => {
+        if (options.storageFails?.delete) throw new Error("clientStorage delete failed");
+        clientStorage.delete(name);
       },
     },
     getNodeByIdAsync: async (id: string) => byId.get(id) ?? null,

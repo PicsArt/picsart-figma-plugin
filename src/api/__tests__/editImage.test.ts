@@ -291,7 +291,7 @@ describe("the poll path fallback", () => {
     const outcome = await pollInference({
       paths: ["figma/painting/", "painting/"],
       inferenceId: "inf-1",
-      key: KEY,
+      credential: KEY,
       transient: EDIT_IMAGE_FAILED_ERR,
       rejected: EDIT_IMAGE_REJECTED_ERR,
     });
@@ -311,7 +311,7 @@ describe("the poll path fallback", () => {
     await pollInference({
       paths: ["figma/painting/", "painting/"],
       inferenceId: "inf-2",
-      key: KEY,
+      credential: KEY,
       transient: EDIT_IMAGE_FAILED_ERR,
       rejected: EDIT_IMAGE_REJECTED_ERR,
     });

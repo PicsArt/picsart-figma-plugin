@@ -1,12 +1,12 @@
 # Releasing
 
-How a release of **BG Remover & Image Enhancer by Picsart** is cut and published.
+How a release of **AI Image Generator & Editor by Picsart** is cut and published.
 
-Figma owns distribution: there is no npm publish and no CI. A release is a
-production build on a reviewer's machine, published through the Figma desktop
-app. `dist/` is gitignored, so **the build artefact never lands in git** — what
-you publish is whatever `dist/` holds at the moment you press Publish. Build
-deliberately, immediately before publishing.
+Figma owns distribution: there is no npm publish, and **no CI** — nothing runs the gate
+except whoever remembers to. A release is a production build on a reviewer's own machine,
+published through the Figma desktop app. `dist/` is gitignored, so **the build artefact
+never lands in git** — what you publish is whatever `dist/` holds at the moment you press
+Publish. Build deliberately, immediately before publishing.
 
 ## Versioning
 
@@ -48,21 +48,23 @@ git diff --stat <previous-tag>..main
 
 ## 2. Pre-flight gate
 
-`main` has no `typecheck`, `test` or `gate` script (those exist on
-`dev/add-image-to-image`), so run the stages directly. All four matter and none
-subsumes another — `lint` skips `webpack.config.js`, `tsconfig.json`'s `include`
-skips the sandbox dirs, and only `build:prod` executes the build config at all.
+`npm run gate` runs all six stages, and none subsumes another — `lint` skips
+`webpack.config.js`, `tsconfig.json`'s `include` skips the sandbox dirs, only
+`test:run` catches a behavioural regression, only `build` catches a comment ending
+in the word "import", only `check:bundle` sees UI-only code in the sandbox bundle
+(and it has to read the DEV build, because production tree-shaking removes the
+violation), and only `build:prod` executes the production config.
 
 ```bash
-nvm use                # .nvmrc → lts/krypton (Node 20.19.2)
+nvm use                # .nvmrc → 20
 npm ci
-npx tsc --noEmit       # must exit 0
-npm run lint           # must exit 0
-npm run build:prod     # must emit dist/code.js + dist/ui.html
+npm run gate           # must exit 0
 ```
 
-Expect exactly 3 webpack warnings, all asset-size advisories for `ui.js` /
-`ui.html`. Any *other* warning is a real finding — investigate before shipping.
+`build:prod` should finish with **zero** warnings. This file used to say "expect
+exactly 3 webpack warnings, all asset-size advisories" — there are none, so a
+releaser was trained to wave through three findings that would now be real. Treat
+any warning as a real finding and investigate before shipping.
 
 Confirm the build output exists and is fresh:
 
@@ -80,8 +82,37 @@ If the release touched any endpoint URL, verify every host it now calls is in
 only, on the user's machine, with no build-time signal.
 
 ```bash
-grep -rn 'https://' constants/url.ts
+grep -rn 'https://' constants/url.ts constants/auth.ts
 ```
+
+`manifest.json` is JSON and cannot carry a comment, so the reason each auth host is
+declared lives here and in `constants/auth.ts`:
+
+- **`https://auth.picsart.com`** — the authorization server. `oauth2/authorize`,
+  `oauth2/token`, `oauth2/register` and `connect/logout` are all under `/api` on it.
+- **`devAllowedDomains`** applies to a locally imported manifest only and costs nothing
+  at review: `http://localhost:8080` is the auth spike harness in `spike/auth/`
+  (gitignored), and `https://api.picsart.com` is the gateway used as a known-good
+  control when a 401 has to be attributed to the resource rather than to the credential.
+
+Neither `https://api.picsart.com` nor `https://picsart.com` belongs in
+`allowedDomains`: the gateway hosts nothing the plugin calls (`404` for all three
+`figma/*` routes) and the `mini-apps-portal` flow is not used.
+
+**Domain changes are a store-review gate**, so a release that adds one has a slower
+cycle than one that does not — which is why these two landed ahead of the account-auth
+code that now uses them.
+
+**One domain is deliberately still absent, and it is the next one to think about.** The
+sign-in rendezvous is `AUTH_RENDEZVOUS.mode = "paste"` (`constants/auth.ts`): the user
+copies the redirected address out of their browser and pastes it into the panel, so the
+plugin never fetches the redirect host and never navigates the iframe to it — which is
+exactly why no entry is needed for it today. Switching the mode to `"relay"`, so the
+iframe polls a host we control instead of asking for a paste, **adds that origin to
+`allowedDomains` and therefore costs a review cycle**. It also needs a newly registered
+`client_id`, because a redirect URI is fixed at registration and this authorization
+server publishes no RFC 7592 management. If both are wanted, they belong in the same
+submission. `services/rendezvous.ts` lists the four things that change and nothing else.
 
 ## 4. Bump the version
 

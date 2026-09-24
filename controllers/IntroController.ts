@@ -9,8 +9,11 @@ import {
   TAB_ACCOUNT,
   TYPE_SET_KEY,
   TYPE_SET_BALANCE,
+  KEY_SAVE_FAILED,
 } from "@constants/index";
 import routeCommand from "@routes/CommandRouter";
+import { readApiKey } from "@services/apiKeyStorage";
+import { apiKeyIdentity } from "@services/credentialIdentity";
 import { rememberBalance } from "@services/balance";
 import { setMessageListeners } from "@services/MessageListeners";
 import { addUiMessageHandler } from "@services/UiBridge";
@@ -31,6 +34,26 @@ const TAB_FOR_COMMAND: Record<string, string> = {
   [commands.COMMAND_ACCOUNT]: TAB_ACCOUNT,
 };
 
+const handleIntroMessage = async (response: {
+  type?: string;
+  success?: boolean;
+  msg?: unknown;
+}) => {
+  if (!response.success) return;
+
+  if (response.type === TYPE_SET_KEY) {
+    try {
+      await figma.clientStorage.setAsync(API_KEY_NAME, response.msg);
+    } catch (error) {
+      console.error("Failed to store the API key:", error);
+      figma.notify(KEY_SAVE_FAILED, { error: true });
+    }
+    routeCommand(true);
+  } else if (response.type === TYPE_SET_BALANCE) {
+    rememberBalance(response.msg, apiKeyIdentity(await readApiKey(figma)));
+  }
+};
+
 const IntroController = async () => {
   if (figma.command === commands.COMMAND_SUPPORT) {
     routeCommand();
@@ -45,19 +68,7 @@ const IntroController = async () => {
   // Registered before the panel opens, so a key submitted the instant the intro page
   // renders cannot arrive before anyone is listening. Added rather than assigned, so
   // it coexists with the handler above instead of replacing it.
-  addUiMessageHandler(figma, (response) => {
-    if (!response.success) return;
-
-    if (response.type === TYPE_SET_KEY) {
-      figma.clientStorage.setAsync(API_KEY_NAME, response.msg).then(() => {
-        routeCommand(true);
-      });
-    } else if (response.type === TYPE_SET_BALANCE) {
-      // The third of the three balance writers, and the second that used to cast
-      // whatever arrived straight to `number`. All three go through one guard now.
-      rememberBalance(response.msg);
-    }
-  });
+  addUiMessageHandler(figma, handleIntroMessage);
 
   await openPanel({
     // Generate Image is the default for an unrecognised command, matching the menu

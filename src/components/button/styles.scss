@@ -28,10 +28,17 @@
   .generate-image-disabled,
   .submit-active,
   .submit-disabled,
+  .continue-disabled,
   .new-key,
-  .change-key,
   .add-credits,
-  .buy-more {
+  .buy-more,
+  .sign-in-btn,
+  .sign-in-disabled,
+  .sign-in-retry,
+  .sign-out-btn,
+  .cancel-btn,
+  .use-api-key,
+  .reopen-browser {
     cursor: pointer;
     transition: background-color 0.3s, border-color 0.3s;
   }
@@ -92,6 +99,12 @@
     border: 2px solid #757575;
   }
 
+  .continue-disabled {
+    color: #ffffff;
+    background-color: #757575;
+    border: 2px solid #757575;
+  }
+
   .submit-active {
     color: #ffffff;
     background-color: #520be5;
@@ -110,22 +123,40 @@
     border-color: #3e07c5;
   }
 
-  .change-key {
+  .buy-more, .add-credits, .sign-in-btn, .sign-in-retry {
+    color: #ffffff;
+    background-color: #520be5;
+  }
+  .buy-more:hover, .add-credits:hover, .sign-in-btn:hover, .sign-in-retry:hover {
+    background-color: #3e07c5;
+  }
+
+  .sign-in-disabled {
+    color: #ffffff;
+    background-color: #757575;
+    border: 2px solid #757575;
+  }
+
+  .sign-out-btn, .cancel-btn, .use-api-key, .reopen-browser {
     color: #520be5;
     background-color: #ffffff;
     border: 2px solid #520be5;
   }
-  .change-key:hover {
+  .sign-out-btn:hover, .cancel-btn:hover, .use-api-key:hover, .reopen-browser:hover {
     background-color: #e5e5f7;
     border-color: #3e07c5;
   }
 
-  .buy-more, .add-credits {
-    color: #ffffff;
-    background-color: #520be5;
+  .remove-key {
+    cursor: pointer;
+    transition: background-color 0.3s, border-color 0.3s, color 0.3s;
+    color: $light-color-error-text;
+    background-color: transparent;
+    border: 2px solid $light-color-error-text;
   }
-  .buy-more:hover, .add-credits:hover {
-    background-color: #3e07c5;
+  .remove-key:hover {
+    color: $color-default-white;
+    background-color: $light-color-error-text;
   }
 }
 
@@ -156,10 +187,17 @@
   .generate-image-disabled,
   .submit-active,
   .submit-disabled,
+  .continue-disabled,
   .new-key,
-  .change-key,
   .add-credits,
-  .buy-more {
+  .buy-more,
+  .sign-in-btn,
+  .sign-in-disabled,
+  .sign-in-retry,
+  .sign-out-btn,
+  .cancel-btn,
+  .use-api-key,
+  .reopen-browser {
     cursor: pointer;
     transition: background-color 0.3s, border-color 0.3s;
   }
@@ -225,6 +263,11 @@
     border: 2px solid #4a4646;
   }
 
+  .continue-disabled {
+    color: #ffffff;
+    border: 2px solid #4a4646;
+  }
+
   .submit-active {
     color: #000000;
     background-color: #bd99f8;
@@ -241,19 +284,36 @@
     background-color: #5a1f9e;
   }
 
-  .change-key {
+  .buy-more, .add-credits, .sign-in-btn, .sign-in-retry {
     color: #000000;
     background-color: #bd99f8;
   }
-  .change-key:hover {
+  .buy-more:hover, .add-credits:hover, .sign-in-btn:hover, .sign-in-retry:hover {
     background-color: #5a1f9e;
   }
 
-  .buy-more, .add-credits {
+  .sign-in-disabled {
+    color: #ffffff;
+    border: 2px solid #4a4646;
+  }
+
+  .sign-out-btn, .cancel-btn, .use-api-key, .reopen-browser {
     color: #000000;
     background-color: #bd99f8;
   }
-  .buy-more:hover, .add-credits:hover {
+  .sign-out-btn:hover, .cancel-btn:hover, .use-api-key:hover, .reopen-browser:hover {
     background-color: #5a1f9e;
+  }
+
+  .remove-key {
+    cursor: pointer;
+    transition: background-color 0.3s, border-color 0.3s, color 0.3s;
+    color: $dark-color-error-text;
+    background-color: transparent;
+    border: 2px solid $dark-color-error-text;
+  }
+  .remove-key:hover {
+    color: #000000;
+    background-color: $dark-color-error-text;
   }
 }

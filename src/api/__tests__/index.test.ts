@@ -7,6 +7,8 @@ import {
   UPSCALE_FAILED_ERR,
   UPSCALE_REJECTED_ERR,
   GENERATE_IMAGE_FAILED_ERR,
+  SESSION_EXPIRED_ERR,
+  SESSION_SCOPE_ERR,
 } from "@constants/index";
 
 // getImageBinary decodes through `new Image()`, which never fires onload for a
@@ -270,7 +272,7 @@ describe("checkGenerateImageStatus", () => {
     expect((await checkGenerateImageStatus("abc", "key")).msg).toBe("unsupported aspect ratio");
   });
 
-  it("turns a 401 during polling into the wrong-key message", async () => {
+  it("turns a 401 during polling into the wrong-key message FOR AN API KEY", async () => {
     answerWith(jsonResponse({ message: "token_error" }, 401));
     const { checkGenerateImageStatus } = await import("@api/index");
 
@@ -278,6 +280,32 @@ describe("checkGenerateImageStatus", () => {
       status: "error",
       msg: KEY_WRONG_ERR,
     });
+  });
+
+  it("does not tell a signed-in user their API key is wrong", async () => {
+    answerWith(jsonResponse({ message: "token_error" }, 401));
+    const { checkGenerateImageStatus } = await import("@api/index");
+
+    const result = await checkGenerateImageStatus("abc", {
+      kind: "oauth",
+      token: "jwt",
+      scopes: ["workflows.execute"],
+    });
+
+    expect(result).toEqual({ status: "error", msg: SESSION_EXPIRED_ERR });
+  });
+
+  it("names the dropped scope rather than reporting an expiry", async () => {
+    answerWith(jsonResponse({ message: "token_error" }, 401));
+    const { checkGenerateImageStatus } = await import("@api/index");
+
+    const result = await checkGenerateImageStatus("abc", {
+      kind: "oauth",
+      token: "jwt",
+      scopes: ["openid", "profile"],
+    });
+
+    expect(result).toEqual({ status: "error", msg: SESSION_SCOPE_ERR });
   });
 
   it("still returns finished image URLs", async () => {

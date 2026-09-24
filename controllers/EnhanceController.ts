@@ -1,14 +1,14 @@
 import {
-  API_KEY_NAME,
   TAB_UPSCALE,
   WIDGET_HEIGHT_UPSCALE_WITH_KEY,
   WIDGET_HEIGHT_UPSCALE_WITHOUT_KEY,
 } from "@constants/index";
+import { activeCredential } from "@services/authSession";
 import { setMessageListeners } from "@services/MessageListeners";
 import openPanel from "./openPanel";
 
 const EnhanceController = async () => {
-  const apiKey = await figma.clientStorage.getAsync(API_KEY_NAME);
+  const { credential } = await activeCredential(figma);
 
   setMessageListeners(figma);
 
@@ -16,7 +16,9 @@ const EnhanceController = async () => {
     tab: TAB_UPSCALE,
     // The Upscale tab restores this height when its advanced panel closes, so the
     // two must stay in step — hence the shared constants.
-    height: apiKey ? WIDGET_HEIGHT_UPSCALE_WITH_KEY : WIDGET_HEIGHT_UPSCALE_WITHOUT_KEY,
+    height: credential
+      ? WIDGET_HEIGHT_UPSCALE_WITH_KEY
+      : WIDGET_HEIGHT_UPSCALE_WITHOUT_KEY,
   });
 };
 

@@ -5,9 +5,10 @@ import { HELP_CENTER } from "@constants/url";
 import "./styles.scss";
 import { sendMessageToSandBox } from "@api/index";
 import { TYPE_SWITCH_TAB } from "@constants/index";
+import type { CredentialInput } from "@app-types/credential";
 
 interface Props {
-  gottenKey: string;
+  gottenKey: CredentialInput;
   tab: TabType;
 }
 
@@ -18,10 +19,10 @@ interface Props {
 // The label IS the enum value. There used to be three separate label constants in
 // ui_constants/texts.ts whose only job was to restate these strings, and one of
 // them had already drifted to a different capitalisation.
-const TABS: readonly { type: TabType; tabIndex: number }[] = [
-  { type: TabType.GENERATE_IMAGE, tabIndex: 1 },
-  { type: TabType.REMOVE_BACKGROUND, tabIndex: 2 },
-  { type: TabType.UPSCALE, tabIndex: 3 },
+const TABS: readonly TabType[] = [
+  TabType.GENERATE_IMAGE,
+  TabType.REMOVE_BACKGROUND,
+  TabType.UPSCALE,
 ];
 
 const Navbar: React.FC<Props> = ({ gottenKey, tab }) => {
@@ -53,12 +54,12 @@ const Navbar: React.FC<Props> = ({ gottenKey, tab }) => {
           tabs and says which one is current. Three <span role="button"> elements
           reported nothing about being a set or about which was active. */}
       <div className="options-container" role="tablist" aria-label="Picsart tools">
-        {TABS.map(({ type, tabIndex }) => (
+        {TABS.map((type) => (
           <span
             key={type}
             className={`option ${tab === type ? "selected" : ""}`}
             onClick={() => handleSelect(type)}
-            tabIndex={tabIndex}
+            tabIndex={0}
             role="tab"
             aria-selected={tab === type}
             onKeyDown={(e) => {
@@ -99,19 +100,6 @@ const Navbar: React.FC<Props> = ({ gottenKey, tab }) => {
         </div>
         {gottenKey && showMenu && (
           <div ref={ref} className="hamburger-menu-hidden-content">
-            <span 
-              onClick={() => handleMenuItemClick(TabType.SET_API_KEY)}
-              tabIndex={0}
-              role="button"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  handleMenuItemClick(TabType.SET_API_KEY);
-                }
-              }}
-            >
-              Set API Key
-            </span>
             <span 
               onClick={() => handleMenuItemClick(TabType.ACCOUNT)}
               tabIndex={0}

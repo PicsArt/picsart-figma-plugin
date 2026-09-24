@@ -1,7 +1,7 @@
 /// <reference types="@figma/plugin-typings" />
-import { API_KEY_NAME } from "@constants/index";
 import IntroController from "@controllers/IntroController";
 import routeCommand from "@routes/CommandRouter";
+import { activeCredential } from "@services/authSession";
 import { sendImageSelectionStatus } from "@services/ImageProcessor";
 import { beginUiSession } from "@services/UiBridge";
 
@@ -17,15 +17,14 @@ figma.showUI(__html__, { visible: false });
 // iframe's lifecycle visible to the bridge instead of invisible to it.
 beginUiSession(figma);
 
-// Need to take time while UI is drawing that you can postmessage with it 
 setTimeout(async () => {
   figma.on("selectionchange", () => {
     sendImageSelectionStatus();
   });
 
-  const key = await figma.clientStorage.getAsync(API_KEY_NAME);
+  const { credential } = await activeCredential(figma);
 
-  if (!key) {
+  if (!credential) {
     IntroController();
   } else {
     routeCommand();
