@@ -15,13 +15,11 @@ import {
   refreshCredentialNow,
   signOut,
   startSignIn,
-  submitAuthResponse,
 } from "./authSession";
 import { credentialIdentity } from "./credentialIdentity";
 import { deliverBalance, rememberBalance } from "./balance";
 import {
   TYPE_APPLY_IMAGE,
-  TYPE_AUTH_RESPONSE,
   TYPE_CANCEL_SIGN_IN,
   TYPE_REFRESH_CREDENTIAL,
   TYPE_SIGN_IN,
@@ -138,11 +136,6 @@ const finishPlacement = (
 const handleUiMessage = async (figma: PluginAPI, response: IncomingMessage) => {
     if (response.type === TYPE_SIGN_IN) {
       await startSignIn(figma);
-      return;
-    }
-
-    if (response.type === TYPE_AUTH_RESPONSE) {
-      await submitAuthResponse(figma, asText(response.msg));
       return;
     }
 

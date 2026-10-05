@@ -7,13 +7,13 @@ import {
     SIGNED_OUT_MSG,
     SIGNED_OUT_USING_KEY_MSG,
     SIGN_IN_BLOCKED_ERR,
-    SIGN_IN_CODE_UNREADABLE_ERR,
+    SIGN_IN_CANCELLED_MSG,
+    SIGN_IN_FAILED_ERR,
     SIGN_IN_NOT_REMEMBERED_ERR,
-    SIGN_IN_NO_SESSION_ERR,
-    SIGN_IN_STATE_MISMATCH_ERR,
+    SIGN_IN_TIMED_OUT_ERR,
     SIGN_IN_UNREACHABLE_ERR,
-    ENTROPY_TIMEOUT_MS,
-    OAUTH_REDIRECT_URI,
+    DEVICE_POLL_OFFLINE_TOLERANCE,
+    OAUTH_CLIENT_ID,
     TYPE_AUTH_STATE,
     TYPE_CREDENTIAL,
 } from "../../constants/index";
@@ -21,7 +21,6 @@ import type { AuthState } from "../../src/types/auth";
 import {
     acknowledgeTerminalAuthState,
     activeCredential,
-    armSignIn,
     authState,
     cancelSignIn,
     hasPendingSignIn,
@@ -30,11 +29,15 @@ import {
     resetAuthSession,
     signOut,
     startSignIn,
-    submitAuthResponse,
 } from "../authSession";
 import type { SandboxFetchFn } from "../sandboxFetch";
 import { beginUiSession, resetUiBridge } from "../UiBridge";
-import { makeFigmaStub, type FigmaStub } from "./figmaStub";
+import {
+    makeFigmaStub,
+    type ExchangeRequest,
+    type ExchangeStubReply,
+    type FigmaStub,
+} from "./figmaStub";
 
 const jwt = (claims: Record<string, unknown>): string => {
     const encode = (value: unknown) =>
@@ -47,8 +50,8 @@ const jwt = (claims: Record<string, unknown>): string => {
 };
 
 const FUTURE_EXP = Math.floor(Date.now() / 1000) + 3600;
-const TOKEN = jwt({ scope: ["openid", "profile", "workflows.execute"], exp: FUTURE_EXP });
-const DESCOPED = jwt({ scope: ["openid"], exp: FUTURE_EXP });
+const TOKEN = jwt({ scope: ["profile", "workflows.execute"], exp: FUTURE_EXP });
+const DESCOPED = jwt({ scope: ["profile"], exp: FUTURE_EXP });
 const KEY = "an-api-key";
 
 const reply = (over: Partial<FetchResponse> = {}): FetchResponse =>
@@ -66,42 +69,16 @@ const fetchStub = (...responses: FetchResponse[]) => {
     return vi.fn<SandboxFetchFn>(async () => responses[Math.min(call++, responses.length - 1)]);
 };
 
-const tokenReply = (over: Record<string, unknown> = {}) =>
-    reply({ json: async () => ({ access_token: TOKEN, refresh_token: "rt:new", ...over }) });
-
 const record = (over: Record<string, unknown> = {}) => ({
     accessToken: TOKEN,
     refreshToken: "rt:stored",
     expiresAt: Date.now() + 3_600_000,
-    scopes: ["openid", "profile", "workflows.execute"],
-    clientId: "dcr-test",
+    scopes: ["profile", "workflows.execute"],
+    clientId: OAUTH_CLIENT_ID,
     writtenAt: 1000,
     ...over,
 });
 
-
-const WRITE_KEY = "w".repeat(43);
-const READ_KEY = "r".repeat(43);
-
-const relay = (
-    poll: () => FetchResponse = () => reply({ json: async () => ({ status: "pending" }) }),
-    ...rest: FetchResponse[]
-) => {
-    let call = 0;
-    return vi.fn<SandboxFetchFn>(async (url: string) => {
-        if (url.indexOf("/auth/handoff/result") !== -1) return poll();
-        if (url.indexOf("/auth/handoff") !== -1) {
-            return reply({
-                json: async () => ({
-                    write_key: WRITE_KEY,
-                    read_key: READ_KEY,
-                    expires_in: 600,
-                }),
-            });
-        }
-        return rest[Math.min(call++, rest.length - 1)] ?? reply();
-    });
-};
 
 const exchanged = (over: Record<string, unknown> = {}) => ({
     ok: true as const,
@@ -118,19 +95,61 @@ const states = (stub: FigmaStub): AuthState[] =>
 
 const lastState = (stub: FigmaStub): AuthState | undefined => states(stub).at(-1);
 
-const stateFromUrl = (url: string): string =>
-    decodeURIComponent(/[?&]state=([^&]*)/.exec(url)?.[1] ?? "");
+const VERIFICATION_URI = "https://accounts.picsart.com/device";
+const VERIFICATION_URI_COMPLETE = `${VERIFICATION_URI}?user_code=WDJB-MJHT`;
+
+// A one-millisecond interval, so a poll loop runs to its end under real timers.
+const deviceCodes = (over: Record<string, unknown> = {}): ExchangeStubReply => ({
+    ok: true,
+    body: {
+        device_code: "dc:abc",
+        user_code: "WDJB-MJHT",
+        verification_uri: VERIFICATION_URI,
+        verification_uri_complete: VERIFICATION_URI_COMPLETE,
+        expires_in: 300,
+        interval: 0.001,
+        ...over,
+    },
+});
+
+const pollError = (oauthError: string): ExchangeStubReply => ({
+    ok: false,
+    status: 400,
+    error: `auth request failed: HTTP 400 {"error":"${oauthError}"}`,
+    oauth_error: oauthError,
+});
+
+const PENDING = pollError("authorization_pending");
+
+/**
+ * Answers the exchange page by grant: the device authorization, then each poll in
+ * turn (the last one repeating), and any refresh.
+ */
+const device = (
+    polls: ExchangeStubReply[] = [PENDING],
+    options: { start?: ExchangeStubReply; refresh?: ExchangeStubReply } = {}
+) => {
+    const sent: ExchangeRequest[] = [];
+    let poll = 0;
+    const answer = (msg: ExchangeRequest): ExchangeStubReply => {
+        sent.push(msg);
+        if (msg.grant === "device_authorization") return options.start ?? deviceCodes();
+        if (msg.grant === "device_code") return polls[Math.min(poll++, polls.length - 1)];
+        return options.refresh ?? exchanged();
+    };
+    return Object.assign(answer, {
+        sent,
+        polls: () => sent.filter((m) => m.grant === "device_code").length,
+    });
+};
 
 beforeEach(() => {
     resetUiBridge();
     resetAuthSession();
 
-    // Nothing here may reach the network. Most calls take an injected fetch, but
-    // `cancelSignIn` and `signOut` re-arm through `armSignIn(pluginApi)` with none —
-    // correct in production, where the global is the seam — so the tests that exercise
-    // them POSTed to the live relay and failed on a 5s socket timeout whenever it was
-    // slow or rate-limited. An injected stub still wins over this one.
-    vi.stubGlobal("fetch", relay());
+    // Nothing here may reach the network. signOut's end-session call takes an
+    // injected fetch; the global is stubbed so a test that omits one cannot.
+    vi.stubGlobal("fetch", fetchStub(reply()));
 
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
@@ -143,388 +162,271 @@ afterEach(() => {
     vi.restoreAllMocks();
 });
 
-describe("armSignIn", () => {
-    it("arms an authorize URL before anything is pressed", async () => {
-        const stub = makeFigmaStub();
-        ready(stub);
-
-        await armSignIn(stub.api, relay());
-
-        const state = lastState(stub);
-        expect(state?.status).toBe("armed");
-        if (state?.status === "armed") {
-            expect(state.authorizeUrl).toContain("code_challenge_method=S256");
-            expect(state.authorizeUrl).toContain("response_type=code");
-        }
-    });
-
-    it("does not overwrite a sign-in that is already under way", async () => {
-        const stub = makeFigmaStub();
-        ready(stub);
-        await startSignIn(stub.api, relay());
-
-        await armSignIn(stub.api, relay());
-
-        expect(lastState(stub)?.status).toBe("awaiting");
-        expect(hasPendingSignIn()).toBe(true);
-    });
-
-    it("hands the armed URL to startSignIn rather than building a second one", async () => {
-        const stub = makeFigmaStub();
-        ready(stub);
-        await armSignIn(stub.api, relay());
-        const armed = lastState(stub);
-
-        await startSignIn(stub.api, relay());
-
-        const awaiting = lastState(stub);
-        expect(awaiting?.status).toBe("awaiting");
-        if (armed?.status === "armed" && awaiting?.status === "awaiting") {
-            expect(awaiting.authorizeUrl).toBe(armed.authorizeUrl);
-        }
-    });
-
-    it("borrows randomness from the panel when this realm has none", async () => {
-        vi.stubGlobal("crypto", undefined);
-        const stub = makeFigmaStub();
-        ready(stub);
-        try {
-            await armSignIn(stub.api, relay());
-
-            const state = lastState(stub);
-            expect(state?.status).toBe("armed");
-            if (state?.status === "armed") {
-                expect(state.authorizeUrl).toContain("code_challenge_method=S256");
-            }
-            expect(stub.posted.some((m) => m.type === "request-random")).toBe(true);
-        } finally {
-            vi.unstubAllGlobals();
-        }
-    });
-
-    it("says so, terminally, when NEITHER realm can produce a safe verifier", async () => {
-        vi.stubGlobal("crypto", undefined);
-        const stub = makeFigmaStub({ entropy: "no-crypto" });
-        ready(stub);
-        try {
-            await armSignIn(stub.api, relay());
-
-            const state = lastState(stub);
-            expect(state?.status).toBe("failed");
-            if (state?.status === "failed") {
-                expect(state.reason).toContain("Sign-in isn't available");
-            }
-        } finally {
-            vi.unstubAllGlobals();
-        }
-    });
-
-    it("leaves the button alone when the panel merely fails to answer", async () => {
-        vi.useFakeTimers();
-        vi.stubGlobal("crypto", undefined);
-        const stub = makeFigmaStub({ entropy: "silent" });
-        ready(stub);
-        try {
-            const arming = armSignIn(stub.api, relay());
-            await vi.advanceTimersByTimeAsync(ENTROPY_TIMEOUT_MS + 1);
-            await arming;
-
-            expect(states(stub).some((s) => s.status === "failed")).toBe(false);
-        } finally {
-            vi.useRealTimers();
-            vi.unstubAllGlobals();
-        }
-    });
-});
-
 describe("startSignIn", () => {
-    it("moves through starting to awaiting, carrying the authorize URL", async () => {
-        const stub = makeFigmaStub();
+    it("asks for a device code, shows the user code and opens the verification page", async () => {
+        const exchange = device();
+        const stub = makeFigmaStub({ exchange });
         ready(stub);
 
-        await startSignIn(stub.api, relay());
+        await startSignIn(stub.api);
 
         expect(states(stub).map((s) => s.status)).toEqual(["starting", "awaiting"]);
-        const awaiting = lastState(stub);
-        expect(awaiting).toMatchObject({ status: "awaiting", mode: "relay" });
-        expect((awaiting as { authorizeUrl: string }).authorizeUrl).toContain(
-            "code_challenge_method=S256"
-        );
-    });
-
-    it("starts a sign-in in a realm with no crypto, which is the one that was failing", async () => {
-        vi.stubGlobal("crypto", undefined);
-        const stub = makeFigmaStub();
-        ready(stub);
-        try {
-            await startSignIn(stub.api, relay());
-
-            const state = lastState(stub);
-            expect(state?.status).toBe("awaiting");
-            expect(states(stub).some((s) => s.status === "failed")).toBe(false);
-            expect(hasPendingSignIn()).toBe(true);
-        } finally {
-            vi.unstubAllGlobals();
-        }
-    });
-
-    it("re-posts the SAME pending flow rather than doing nothing on a second press", async () => {
-        const stub = makeFigmaStub();
-        ready(stub);
-
-        await startSignIn(stub.api, relay());
-        const first = (lastState(stub) as { authorizeUrl: string }).authorizeUrl;
-
-        await startSignIn(stub.api, relay());
-        const second = lastState(stub);
-
-        expect(second).toMatchObject({ status: "awaiting" });
-        expect((second as { authorizeUrl: string }).authorizeUrl).toBe(first);
-        expect(states(stub).filter((s) => s.status === "starting")).toHaveLength(1);
-    });
-});
-
-describe("the relay rendezvous", () => {
-    it("collects the code and completes the sign-in with nothing pasted", async () => {
-        const stub = makeFigmaStub({ exchange: exchanged() });
-        ready(stub);
-
-        await startSignIn(
-            stub.api,
-            relay(() => reply({ json: async () => ({ status: "ready", code: "ac:relayed", age_ms: 40 }) }))
-        );
-
-        await vi.waitFor(() => expect(lastState(stub)).toMatchObject({ status: "signedIn" }));
-        expect(stub.clientStorage.get(OAUTH_RECORD_NAME)).toMatchObject({ accessToken: TOKEN });
-    });
-
-    it("sends the relay's write key as the OAuth state, because that is what routes the code", async () => {
-        const stub = makeFigmaStub();
-        ready(stub);
-
-        await startSignIn(stub.api, relay());
-
-        const url = (lastState(stub) as { authorizeUrl: string }).authorizeUrl;
-        expect(stateFromUrl(url)).toBe(WRITE_KEY);
-        expect(url).toContain(encodeURIComponent(OAUTH_REDIRECT_URI));
-        expect(url).toContain("code_challenge_method=S256");
-    });
-
-    it("abandons a code the relay held too long instead of spending a corpse", async () => {
-        const stub = makeFigmaStub({ exchange: exchanged() });
-        ready(stub);
-
-        await startSignIn(
-            stub.api,
-            relay(() =>
-                reply({
-                    json: async () => ({ status: "ready", code: "ac:stale", age_ms: 120000 }),
-                })
-            )
-        );
-
-        await vi.waitFor(() => expect(lastState(stub)?.status).toBe("failed"));
-        expect(stub.posted.some((m) => m.type === "exchange-request")).toBe(false);
-    });
-
-    it("routes a refusal from the relay into the denied screen, not a generic failure", async () => {
-        const stub = makeFigmaStub();
-        ready(stub);
-
-        await startSignIn(
-            stub.api,
-            relay(() =>
-                reply({ json: async () => ({ status: "error", error: "access_denied" }) })
-            )
-        );
-
-        await vi.waitFor(() => expect(lastState(stub)).toEqual({ status: "denied" }));
-    });
-
-    it("stops polling when the user cancels, so a late code cannot sign them in anyway", async () => {
-        const stub = makeFigmaStub({ exchange: exchanged() });
-        ready(stub);
-
-        let deliver = false;
-        await startSignIn(
-            stub.api,
-            relay(() =>
-                reply({
-                    json: async () =>
-                        deliver
-                            ? { status: "ready", code: "ac:late", age_ms: 10 }
-                            : { status: "pending" },
-                })
-            )
-        );
-
-        await cancelSignIn(stub.api);
-        deliver = true;
-
-        await new Promise((resolve) => setTimeout(resolve, 50));
-        expect(lastState(stub)?.status).not.toBe("signedIn");
-        expect(stub.clientStorage.has(OAUTH_RECORD_NAME)).toBe(false);
-    });
-});
-
-describe("submitAuthResponse", () => {
-    it("refuses when there is no pending flow, and says so accurately", async () => {
-        const stub = makeFigmaStub();
-        ready(stub);
-
-        await submitAuthResponse(stub.api, "ac:whatever12345");
-
-        expect(lastState(stub)).toEqual({ status: "failed", reason: SIGN_IN_NO_SESSION_ERR });
-    });
-
-    it("KEEPS the pending flow when the paste is unreadable", async () => {
-        const stub = makeFigmaStub({ exchange: exchanged() });
-        ready(stub);
-        await startSignIn(stub.api, relay());
-
-        await submitAuthResponse(stub.api, "Sign-in complete!");
-
-        expect(lastState(stub)).toEqual({
-            status: "failed",
-            reason: SIGN_IN_CODE_UNREADABLE_ERR,
-        });
-        expect(hasPendingSignIn()).toBe(true);
-
-        await submitAuthResponse(stub.api, "ac:good1234567890");
-        expect(lastState(stub)).toMatchObject({ status: "signedIn" });
-    });
-
-    it("reports access_denied as its own state, naming the actor", async () => {
-        const stub = makeFigmaStub();
-        ready(stub);
-        await startSignIn(stub.api, relay());
-
-        await submitAuthResponse(
-            stub.api,
-            "http://localhost:8080/callback.html?error=access_denied"
-        );
-
-        expect(lastState(stub)).toEqual({ status: "denied" });
-        expect(hasPendingSignIn()).toBe(false);
-    });
-
-    it("refuses a response whose state is not the one it sent", async () => {
-        const stub = makeFigmaStub();
-        ready(stub);
-        await startSignIn(stub.api, relay());
-        const fetchFn = fetchStub(tokenReply());
-
-        await submitAuthResponse(stub.api, "?code=abc12345&state=not-the-one");
-
-        expect(lastState(stub)).toEqual({
-            status: "failed",
-            reason: SIGN_IN_STATE_MISMATCH_ERR,
-        });
-        expect(fetchFn).not.toHaveBeenCalled();
-        expect(hasPendingSignIn()).toBe(false);
-    });
-
-    it("accepts a response carrying the matching state", async () => {
-        const stub = makeFigmaStub({ exchange: exchanged() });
-        ready(stub);
-        await startSignIn(stub.api, relay());
-        const sent = stateFromUrl((lastState(stub) as { authorizeUrl: string }).authorizeUrl);
-
-        await submitAuthResponse(
-            stub.api,
-            `?code=abc12345&state=${encodeURIComponent(sent)}`
-        );
-
-        expect(lastState(stub)).toMatchObject({ status: "signedIn" });
-    });
-
-    it("stores the record, posts the credential, and reports the granted scopes", async () => {
-        const stub = makeFigmaStub({
-            clientStorage: { [API_KEY_NAME]: KEY },
-            exchange: exchanged({ id_token: jwt({ name: "Ada" }) }),
-        });
-        ready(stub);
-        await startSignIn(stub.api, relay());
-
-        await submitAuthResponse(stub.api, "ac:good1234567890");
-
         expect(lastState(stub)).toMatchObject({
-            status: "signedIn",
-            name: "Ada",
-            scopes: ["openid", "profile", "workflows.execute"],
+            status: "awaiting",
+            userCode: "WDJB-MJHT",
+            verificationUri: VERIFICATION_URI,
+            verificationUriComplete: VERIFICATION_URI_COMPLETE,
         });
-
-        const stored = stub.clientStorage.get(OAUTH_RECORD_NAME) as Record<string, unknown>;
-        expect(stored).toMatchObject({ accessToken: TOKEN, refreshToken: "rt:new" });
-        expect(stub.clientStorage.get(API_KEY_NAME)).toBe(KEY);
-
-        const credential = stub.posted.filter((m) => m.type === TYPE_CREDENTIAL).at(-1);
-        expect(credential?.payload).toMatchObject({
-            credential: { kind: "oauth", token: TOKEN },
-            apiKey: KEY,
+        expect(exchange.sent[0]).toMatchObject({
+            grant: "device_authorization",
+            scope: "profile workflows.execute",
         });
+        expect(stub.opened).toEqual([VERIFICATION_URI_COMPLETE]);
+        expect(hasPendingSignIn()).toBe(true);
     });
 
-    it("clears the pending flow BEFORE the exchange, so an impatient second press cannot re-send", async () => {
-        const stub = makeFigmaStub({ exchange: "silent" });
+    it("re-posts the SAME pending flow rather than minting a second code on a second press", async () => {
+        const exchange = device();
+        const stub = makeFigmaStub({ exchange });
         ready(stub);
-        await startSignIn(stub.api, relay());
 
-        const inFlight = submitAuthResponse(stub.api, "ac:good1234567890");
+        await startSignIn(stub.api);
+        await startSignIn(stub.api);
+
+        expect(lastState(stub)).toMatchObject({ status: "awaiting", userCode: "WDJB-MJHT" });
+        expect(exchange.sent.filter((m) => m.grant === "device_authorization")).toHaveLength(1);
+        expect(stub.opened).toHaveLength(1);
+    });
+
+    it("refuses to open a verification page that is not on the accounts site", async () => {
+        const stub = makeFigmaStub({
+            exchange: device([PENDING], {
+                start: deviceCodes({
+                    verification_uri: "https://evil.test/device",
+                    verification_uri_complete: "https://evil.test/device?user_code=X",
+                }),
+            }),
+        });
+        ready(stub);
+
+        await startSignIn(stub.api);
+
+        expect(lastState(stub)).toEqual({ status: "failed", reason: SIGN_IN_FAILED_ERR });
+        expect(stub.opened).toEqual([]);
         expect(hasPendingSignIn()).toBe(false);
-
-        await submitAuthResponse(stub.api, "ac:good1234567890");
-        expect(lastState(stub)).toEqual({ status: "failed", reason: SIGN_IN_NO_SESSION_ERR });
-
-        expect(
-            stub.posted.filter((m) => m.type === "exchange-request")
-        ).toHaveLength(1);
-        void inFlight;
     });
 
-    it("reports a descoped token as a scope failure, and stores nothing", async () => {
-        const stub = makeFigmaStub({ exchange: { ok: true, body: { access_token: DESCOPED } } });
+    it("drops only a foreign shortcut link, keeping the plain verification page", async () => {
+        const stub = makeFigmaStub({
+            exchange: device([PENDING], {
+                start: deviceCodes({ verification_uri_complete: "https://evil.test/x" }),
+            }),
+        });
         ready(stub);
-        await startSignIn(stub.api, relay());
 
-        await submitAuthResponse(stub.api, "ac:good1234567890");
+        await startSignIn(stub.api);
 
-        expect(lastState(stub)).toEqual({ status: "failed", reason: SESSION_SCOPE_ERR });
-        expect(stub.clientStorage.has(OAUTH_RECORD_NAME)).toBe(false);
+        expect(stub.opened).toEqual([VERIFICATION_URI]);
+        expect(lastState(stub)).toMatchObject({ status: "awaiting" });
     });
 
     it("says the plugin was refused, not that the connection is bad, on a CORS block", async () => {
         const stub = makeFigmaStub({
-            exchange: { ok: false, error: "not readable from this origin", throttled: true },
+            exchange: device([PENDING], {
+                start: { ok: false, error: "not readable from this origin", throttled: true },
+            }),
         });
         ready(stub);
-        await startSignIn(stub.api, relay());
 
-        await submitAuthResponse(stub.api, "ac:good1234567890");
+        await startSignIn(stub.api);
 
         expect(lastState(stub)).toEqual({ status: "failed", reason: SIGN_IN_BLOCKED_ERR });
     });
 
     it("does not claim to be reachable when it is not", async () => {
         const stub = makeFigmaStub({
-            exchange: { ok: false, error: "could not reach the token endpoint at all" },
+            exchange: device([PENDING], {
+                start: { ok: false, error: "could not reach the auth server at all" },
+            }),
         });
         ready(stub);
-        await startSignIn(stub.api, relay());
 
-        await submitAuthResponse(stub.api, "ac:good1234567890");
+        await startSignIn(stub.api);
 
         expect(lastState(stub)).toEqual({ status: "failed", reason: SIGN_IN_UNREACHABLE_ERR });
     });
+});
+
+describe("the device poll", () => {
+    it("keeps polling while the person is in the browser, then signs in", async () => {
+        const exchange = device([PENDING, PENDING, exchanged()]);
+        const stub = makeFigmaStub({ clientStorage: { [API_KEY_NAME]: KEY }, exchange });
+        ready(stub);
+
+        await startSignIn(stub.api);
+
+        await vi.waitFor(() => expect(lastState(stub)).toMatchObject({ status: "signedIn" }));
+        expect(exchange.polls()).toBe(3);
+        expect(exchange.sent.at(-1)).toMatchObject({ grant: "device_code", device_code: "dc:abc" });
+        expect(lastState(stub)).toMatchObject({ scopes: ["profile", "workflows.execute"] });
+
+        expect(stub.clientStorage.get(OAUTH_RECORD_NAME)).toMatchObject({
+            accessToken: TOKEN,
+            refreshToken: "rt:new",
+            clientId: OAUTH_CLIENT_ID,
+        });
+        expect(stub.clientStorage.get(API_KEY_NAME)).toBe(KEY);
+        const credential = stub.posted.filter((m) => m.type === TYPE_CREDENTIAL).at(-1);
+        expect(credential?.payload).toMatchObject({
+            credential: { kind: "oauth", token: TOKEN },
+            apiKey: KEY,
+        });
+        expect(hasPendingSignIn()).toBe(false);
+    });
+
+    it("adds five seconds to the interval, for good, on slow_down", async () => {
+        vi.useFakeTimers();
+        try {
+            const exchange = device([pollError("slow_down"), PENDING]);
+            const stub = makeFigmaStub({
+                exchange: (msg) =>
+                    msg.grant === "device_authorization"
+                        ? (exchange(msg), deviceCodes({ interval: 5 }))
+                        : exchange(msg),
+            });
+            ready(stub);
+
+            await startSignIn(stub.api);
+            await vi.advanceTimersByTimeAsync(5000);
+            expect(exchange.polls()).toBe(1);
+
+            await vi.advanceTimersByTimeAsync(9999);
+            expect(exchange.polls()).toBe(1);
+            await vi.advanceTimersByTimeAsync(1);
+            expect(exchange.polls()).toBe(2);
+
+            await vi.advanceTimersByTimeAsync(10000);
+            expect(exchange.polls()).toBe(3);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it("shows the denied screen when the person declines", async () => {
+        const exchange = device([pollError("access_denied")]);
+        const stub = makeFigmaStub({ exchange });
+        ready(stub);
+
+        await startSignIn(stub.api);
+
+        await vi.waitFor(() => expect(lastState(stub)).toEqual({ status: "denied" }));
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        expect(exchange.polls()).toBe(1);
+        expect(hasPendingSignIn()).toBe(false);
+    });
+
+    it("says the sign-in timed out when the server expires the device code", async () => {
+        const stub = makeFigmaStub({ exchange: device([pollError("expired_token")]) });
+        ready(stub);
+
+        await startSignIn(stub.api);
+
+        await vi.waitFor(() =>
+            expect(lastState(stub)).toEqual({ status: "failed", reason: SIGN_IN_TIMED_OUT_ERR })
+        );
+    });
+
+    it("stops at the code's own lifetime without asking the server again", async () => {
+        const exchange = device();
+        const stub = makeFigmaStub({
+            exchange: (msg) =>
+                msg.grant === "device_authorization"
+                    ? (exchange(msg), deviceCodes({ expires_in: 0.001, interval: 0.01 }))
+                    : exchange(msg),
+        });
+        ready(stub);
+
+        await startSignIn(stub.api);
+
+        await vi.waitFor(() =>
+            expect(lastState(stub)).toEqual({ status: "failed", reason: SIGN_IN_TIMED_OUT_ERR })
+        );
+        expect(exchange.polls()).toBe(0);
+    });
+
+    it("fails on a refused device code rather than polling it forever", async () => {
+        const exchange = device([pollError("invalid_grant")]);
+        const stub = makeFigmaStub({ exchange });
+        ready(stub);
+
+        await startSignIn(stub.api);
+
+        await vi.waitFor(() =>
+            expect(lastState(stub)).toEqual({ status: "failed", reason: SIGN_IN_FAILED_ERR })
+        );
+        expect(exchange.polls()).toBe(1);
+    });
+
+    it("rides out a few unanswered polls, then gives up and says the network is the problem", async () => {
+        const unanswered: ExchangeStubReply = { ok: false, error: "could not reach the auth server" };
+        const recovers = device([unanswered, unanswered, exchanged()]);
+        const stub = makeFigmaStub({ exchange: recovers });
+        ready(stub);
+
+        await startSignIn(stub.api);
+        await vi.waitFor(() => expect(lastState(stub)).toMatchObject({ status: "signedIn" }));
+
+        resetAuthSession();
+        const dead = device([unanswered]);
+        const other = makeFigmaStub({ exchange: dead });
+        ready(other);
+
+        await startSignIn(other.api);
+        await vi.waitFor(() =>
+            expect(lastState(other)).toEqual({ status: "failed", reason: SIGN_IN_UNREACHABLE_ERR })
+        );
+        expect(dead.polls()).toBe(DEVICE_POLL_OFFLINE_TOLERANCE);
+    });
+
+    it("stops polling when the user cancels, so a late approval cannot sign them in anyway", async () => {
+        let approve = false;
+        const exchange = device();
+        const stub = makeFigmaStub({
+            exchange: (msg) =>
+                msg.grant === "device_code" && approve ? exchanged() : exchange(msg),
+        });
+        ready(stub);
+
+        await startSignIn(stub.api);
+        await cancelSignIn(stub.api);
+        approve = true;
+
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        expect(lastState(stub)).toEqual({ status: "idle" });
+        expect(stub.clientStorage.has(OAUTH_RECORD_NAME)).toBe(false);
+    });
+
+    it("reports a descoped token as a scope failure, and stores nothing", async () => {
+        const stub = makeFigmaStub({
+            exchange: device([{ ok: true, body: { access_token: DESCOPED } }]),
+        });
+        ready(stub);
+
+        await startSignIn(stub.api);
+
+        await vi.waitFor(() =>
+            expect(lastState(stub)).toEqual({ status: "failed", reason: SESSION_SCOPE_ERR })
+        );
+        expect(stub.clientStorage.has(OAUTH_RECORD_NAME)).toBe(false);
+    });
 
     it("says the session will not survive a relaunch when the write fails", async () => {
-        const stub = makeFigmaStub({ storageFails: { set: true }, exchange: exchanged() });
+        const stub = makeFigmaStub({ storageFails: { set: true }, exchange: device([exchanged()]) });
         ready(stub);
-        await startSignIn(stub.api, relay());
 
-        await submitAuthResponse(stub.api, "ac:good1234567890");
+        await startSignIn(stub.api);
 
-        expect(lastState(stub)).toMatchObject({ status: "signedIn" });
+        await vi.waitFor(() => expect(lastState(stub)).toMatchObject({ status: "signedIn" }));
         expect(stub.notified).toEqual([{ msg: SIGN_IN_NOT_REMEMBERED_ERR, error: true }]);
         expect(
             stub.posted.filter((m) => m.type === TYPE_CREDENTIAL).at(-1)?.payload
@@ -534,15 +436,15 @@ describe("submitAuthResponse", () => {
 
 describe("cancelSignIn", () => {
     it("is the exit from the case nothing else can end", async () => {
-        const stub = makeFigmaStub();
+        const stub = makeFigmaStub({ exchange: device() });
         ready(stub);
-        await startSignIn(stub.api, relay());
+        await startSignIn(stub.api);
 
         await cancelSignIn(stub.api);
 
-        expect(lastState(stub)).toMatchObject({ status: "armed" });
+        expect(lastState(stub)).toEqual({ status: "idle" });
         expect(hasPendingSignIn()).toBe(false);
-        expect(stub.notified).toHaveLength(1);
+        expect(stub.notified).toEqual([{ msg: SIGN_IN_CANCELLED_MSG, error: false }]);
     });
 
     it("says nothing when there was nothing to cancel", async () => {
@@ -552,7 +454,7 @@ describe("cancelSignIn", () => {
         await cancelSignIn(stub.api);
 
         expect(stub.notified).toEqual([]);
-        expect(lastState(stub)).toMatchObject({ status: "armed" });
+        expect(lastState(stub)).toEqual({ status: "idle" });
     });
 });
 
@@ -606,6 +508,39 @@ describe("activeCredential", () => {
             expect(authState()).toMatchObject({ status: "signedIn" });
         });
 
+        it("refreshes for the client that issued the session", async () => {
+            const exchange = device();
+            const stub = makeFigmaStub({ clientStorage: { ...expired }, exchange });
+            ready(stub);
+
+            await activeCredential(stub.api);
+
+            expect(exchange.sent).toEqual([
+                expect.objectContaining({
+                    grant: "refresh",
+                    refresh_token: "rt:stored",
+                    client_id: OAUTH_CLIENT_ID,
+                }),
+            ]);
+        });
+
+        it("keeps refreshing a session from the earlier client under that client", async () => {
+            const legacy = "dcr-1e37e9dd-0f8d-4927-800b-b0eac86b62f8";
+            const exchange = device();
+            const stub = makeFigmaStub({
+                clientStorage: {
+                    [OAUTH_RECORD_NAME]: record({ expiresAt: Date.now() - 1000, clientId: legacy }),
+                },
+                exchange,
+            });
+            ready(stub);
+
+            await activeCredential(stub.api);
+
+            expect(exchange.sent[0]).toMatchObject({ grant: "refresh", client_id: legacy });
+            expect(stub.clientStorage.get(OAUTH_RECORD_NAME)).toMatchObject({ clientId: legacy });
+        });
+
         it("keeps the stored refresh token when the server issues no new one", async () => {
             // RFC 6749 section 6: a new refresh token is optional on a refresh. Taking
             // the response literally drops the one that still works, and the session
@@ -656,10 +591,10 @@ describe("activeCredential", () => {
         it("does not overwrite a sign-in the user has on screen", async () => {
             const stub = makeFigmaStub({
                 clientStorage: { [OAUTH_RECORD_NAME]: record() },
-                exchange: exchanged(),
+                exchange: device(),
             });
             ready(stub);
-            await startSignIn(stub.api, relay());
+            await startSignIn(stub.api);
 
             await activeCredential(stub.api);
 
@@ -712,11 +647,7 @@ describe("activeCredential", () => {
         it("ends the session on an invalid_grant that storage still agrees with", async () => {
             const stub = makeFigmaStub({
                 clientStorage: { ...expired, [API_KEY_NAME]: KEY },
-                exchange: {
-                    ok: false,
-                    status: 400,
-                    error: 'token exchange failed: HTTP 400 {"error":"invalid_grant"}',
-                },
+                exchange: pollError("invalid_grant"),
             });
             ready(stub);
 
@@ -866,23 +797,23 @@ describe("signOut", () => {
 
 describe("postAuthState", () => {
     it("replays a pending sign-in into a new session (task A13)", async () => {
-        const stub = makeFigmaStub();
+        const stub = makeFigmaStub({ exchange: device() });
         ready(stub);
-        await startSignIn(stub.api, relay());
+        await startSignIn(stub.api);
 
         const fresh = makeFigmaStub();
         resetUiBridge();
         ready(fresh);
         postAuthState(fresh.api);
 
-        expect(lastState(fresh)).toMatchObject({ status: "awaiting" });
+        expect(lastState(fresh)).toMatchObject({ status: "awaiting", userCode: "WDJB-MJHT" });
         expect(authState().status).toBe("awaiting");
     });
 
     it("replays a terminal failure faithfully until it is acknowledged", async () => {
         const stub = makeFigmaStub();
         ready(stub);
-        await submitAuthResponse(stub.api, "ac:no-pending-flow");
+        await startSignIn(stub.api);
         expect(authState().status).toBe("failed");
 
         const fresh = makeFigmaStub();
@@ -896,7 +827,7 @@ describe("postAuthState", () => {
     it("stops replaying once the user has navigated away", async () => {
         const stub = makeFigmaStub();
         ready(stub);
-        await submitAuthResponse(stub.api, "ac:no-pending-flow");
+        await startSignIn(stub.api);
 
         acknowledgeTerminalAuthState();
 
@@ -904,9 +835,9 @@ describe("postAuthState", () => {
     });
 
     it("does NOT acknowledge a pending sign-in away, which is what A13 protects", async () => {
-        const stub = makeFigmaStub();
+        const stub = makeFigmaStub({ exchange: device() });
         ready(stub);
-        await startSignIn(stub.api, relay());
+        await startSignIn(stub.api);
 
         acknowledgeTerminalAuthState();
 
@@ -915,10 +846,10 @@ describe("postAuthState", () => {
     });
 
     it("does not downgrade a signed-in state", async () => {
-        const stub = makeFigmaStub({ exchange: exchanged() });
+        const stub = makeFigmaStub({ exchange: device([exchanged()]) });
         ready(stub);
-        await startSignIn(stub.api, relay());
-        await submitAuthResponse(stub.api, "ac:good1234567890");
+        await startSignIn(stub.api);
+        await vi.waitFor(() => expect(authState().status).toBe("signedIn"));
 
         postAuthState(stub.api);
         expect(authState().status).toBe("signedIn");

@@ -24,7 +24,6 @@ import {
   TYPE_REQUEST_IMAGE_BYTES,
   TYPE_SET_BALANCE,
   TYPE_SET_KEY,
-  TYPE_AUTH_RESPONSE,
   TYPE_CANCEL_SIGN_IN,
   TYPE_REFRESH_CREDENTIAL,
   TYPE_SIGN_IN,
@@ -434,30 +433,34 @@ describe("handleUiMessage", () => {
   });
 
   describe("the auth commands", () => {
-    const relayFetch = () => {
-      const key = "A".repeat(43);
-      const reply = (body: unknown) => ({
-        ok: true,
-        status: 200,
-        headersObject: {},
-        json: async () => body,
-        text: async () => JSON.stringify(body),
-      });
-
-      return vi.fn(async (url: string) =>
-        String(url).indexOf("/result") === -1
-          ? reply({ write_key: key, read_key: key.replace("A", "B"), expires_in: 600 })
-          : reply({ status: "pending" })
-      );
-    };
-
     beforeEach(() => {
-      vi.stubGlobal("fetch", relayFetch());
+      // signOut's end-session call is the only request these reach for directly.
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () => ({
+          ok: true,
+          status: 200,
+          headersObject: {},
+          json: async () => ({}),
+          text: async () => "",
+        }))
+      );
     });
 
     afterEach(() => {
       vi.unstubAllGlobals();
     });
+
+    const deviceCodes = {
+      ok: true as const,
+      body: {
+        device_code: "dc:abc",
+        user_code: "WDJB-MJHT",
+        verification_uri: "https://accounts.picsart.com/device",
+        expires_in: 300,
+        interval: 5,
+      },
+    };
 
     const jwt = (claims: Record<string, unknown>): string => {
       const encode = (value: unknown) =>
@@ -469,19 +472,19 @@ describe("handleUiMessage", () => {
       return `${encode({ alg: "RS256" })}.${encode(claims)}.sig`;
     };
     const TOKEN = jwt({
-      scope: ["openid", "profile", "workflows.execute"],
+      scope: ["profile", "workflows.execute"],
       exp: Math.floor(Date.now() / 1000) + 3600,
     });
     const oauthRecord = {
       accessToken: TOKEN,
       refreshToken: "rt:stored",
       expiresAt: Date.now() + 3_600_000,
-      scopes: ["openid", "profile", "workflows.execute"],
+      scopes: ["profile", "workflows.execute"],
       writtenAt: 1,
     };
 
     it("starts a sign-in even when the message is not flagged successful", async () => {
-      const { api } = makeFigmaStub();
+      const { api } = makeFigmaStub({ exchange: deviceCodes });
       ready(api);
 
       await send(api, { type: TYPE_SIGN_IN });
@@ -489,38 +492,29 @@ describe("handleUiMessage", () => {
       expect(authState().status).toBe("awaiting");
     });
 
-    it("hands a pasted response over as raw text", async () => {
-      const { api } = makeFigmaStub();
-      ready(api);
-      await send(api, { type: TYPE_SIGN_IN });
-
-      await send(api, { type: TYPE_AUTH_RESPONSE, msg: "not a code" });
-
-      expect(authState().status).toBe("failed");
-    });
-
     it("acknowledges a terminal auth message when a tab switch is serviced", async () => {
       const stub = makeFigmaStub();
       vi.stubGlobal("figma", stub.api);
       vi.stubGlobal("__html__", "<html>");
       ready(stub.api);
-      await send(stub.api, { type: TYPE_AUTH_RESPONSE, msg: "ac:no-pending-flow" });
+      // The stub has no device codes to give, so the sign-in fails terminally.
+      await send(stub.api, { type: TYPE_SIGN_IN });
       expect(authState().status).toBe("failed");
 
       await send(stub.api, { type: TYPE_SWITCH_TAB, success: true, tab: TAB_UPSCALE });
 
-      await vi.waitFor(() => expect(authState().status).toBe("armed"));
+      await vi.waitFor(() => expect(authState().status).toBe("idle"));
       vi.unstubAllGlobals();
     });
 
     it("cancels a pending sign-in", async () => {
-      const { api } = makeFigmaStub();
+      const { api } = makeFigmaStub({ exchange: deviceCodes });
       ready(api);
       await send(api, { type: TYPE_SIGN_IN });
 
       await send(api, { type: TYPE_CANCEL_SIGN_IN });
 
-      expect(authState().status).toBe("armed");
+      expect(authState().status).toBe("idle");
     });
 
     it("signs out, keeps the API key, and says the credit pool changed", async () => {

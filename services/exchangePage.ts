@@ -2,7 +2,6 @@ import {
     EXCHANGE_PAGE_URL,
     EXCHANGE_TIMEOUT_MS,
     OAUTH_CLIENT_ID,
-    OAUTH_REDIRECT_URI,
     TYPE_EXCHANGE_PAGE_READY,
     TYPE_EXCHANGE_REQUEST,
     TYPE_EXCHANGE_RESULT,
@@ -14,7 +13,8 @@ import { addUiMessageHandler, postToUi } from "./UiBridge";
 
 export interface ExchangePageInfo {
     clientId?: string;
-    redirectUri?: string;
+    deviceClientId?: string;
+    grants?: string[];
     pageOrigin?: string;
     secureContext?: boolean;
 }
@@ -27,15 +27,13 @@ const waiters = new Map<number, (result: ExchangeReply) => void>();
 export type ExchangeReply =
     | {
           ok: true;
-          access_token?: unknown;
-          id_token?: unknown;
-          refresh_token?: unknown;
-          expires_in?: unknown;
-          scope?: unknown;
+          [field: string]: unknown;
       }
     | {
           ok: false;
           reason: TokenFailureReason;
+          /** The `error` field of the auth server's JSON body, e.g. `authorization_pending`. */
+          oauthError?: string;
           error?: string;
           status?: number;
           throttled?: boolean;
@@ -46,10 +44,12 @@ interface IncomingExchangeMessage {
     nonce?: number;
     ok?: boolean;
     error?: string;
+    oauth_error?: string;
     status?: number;
     throttled?: boolean;
     clientId?: string;
-    redirectUri?: string;
+    deviceClientId?: string;
+    grants?: unknown;
     pageOrigin?: string;
     secureContext?: boolean;
     [key: string]: unknown;
@@ -57,7 +57,8 @@ interface IncomingExchangeMessage {
 
 const classify = (message: IncomingExchangeMessage): TokenFailureReason => {
     if (typeof message.status === "number" && message.status > 0) {
-        return /invalid_grant/i.test(String(message.error ?? "")) ? "invalid_grant" : "http";
+        const oauthError = message.oauth_error ?? String(message.error ?? "");
+        return /invalid_grant/i.test(oauthError) ? "invalid_grant" : "http";
     }
     if (message.throttled) return "blocked";
     return "unreachable";
@@ -69,21 +70,22 @@ const handleMessage = (message: IncomingExchangeMessage) => {
     if (message.type === TYPE_EXCHANGE_PAGE_READY) {
         page = {
             clientId: message.clientId,
-            redirectUri: message.redirectUri,
+            deviceClientId: message.deviceClientId,
+            grants: Array.isArray(message.grants)
+                ? message.grants.filter((g): g is string => typeof g === "string")
+                : undefined,
             pageOrigin: message.pageOrigin,
             secureContext: message.secureContext,
         };
 
-        if (page.clientId && page.clientId !== OAUTH_CLIENT_ID) {
-            authLog("the exchange page is pinned to a different client than this build", {
-                page: page.clientId,
-                plugin: OAUTH_CLIENT_ID,
+        if (!page.grants || page.grants.indexOf("device_code") === -1) {
+            authLog("the exchange page predates the device grant; signing in cannot work", {
+                grants: page.grants,
             });
-        }
-        if (page.redirectUri && page.redirectUri !== OAUTH_REDIRECT_URI) {
-            authLog("the exchange page is pinned to a different redirect_uri", {
-                page: page.redirectUri,
-                plugin: OAUTH_REDIRECT_URI,
+        } else if (page.deviceClientId !== OAUTH_CLIENT_ID) {
+            authLog("the exchange page is pinned to a different client than this build", {
+                page: page.deviceClientId,
+                plugin: OAUTH_CLIENT_ID,
             });
         }
         if (!page.pageOrigin || page.pageOrigin === "null") {
@@ -96,24 +98,22 @@ const handleMessage = (message: IncomingExchangeMessage) => {
         const waiter = typeof message.nonce === "number" ? waiters.get(message.nonce) : undefined;
         if (!waiter) return;
         waiters.delete(message.nonce as number);
-        waiter(
-            message.ok
-                ? {
-                      ok: true,
-                      access_token: message.access_token,
-                      id_token: message.id_token,
-                      refresh_token: message.refresh_token,
-                      expires_in: message.expires_in,
-                      scope: message.scope,
-                  }
-                : {
-                      ok: false,
-                      reason: classify(message),
-                      error: message.error,
-                      status: message.status,
-                      throttled: message.throttled,
-                  }
-        );
+
+        if (message.ok) {
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { type, nonce, ok, ...fields } = message;
+            waiter({ ...fields, ok: true });
+            return;
+        }
+
+        waiter({
+            ok: false,
+            reason: classify(message),
+            oauthError: typeof message.oauth_error === "string" ? message.oauth_error : undefined,
+            error: message.error,
+            status: message.status,
+            throttled: message.throttled,
+        });
     }
 };
 
@@ -152,7 +152,7 @@ const requestFromPage = (
                 error:
                     `the exchange page at ${EXCHANGE_PAGE_URL} did not answer` +
                     (page ? "" : " and never loaded") +
-                    `. A plugin realm cannot perform the exchange itself, so there is ` +
+                    `. A plugin realm cannot reach the auth server itself, so there is ` +
                     `nowhere else to do it.`,
             });
         }, EXCHANGE_TIMEOUT_MS);
@@ -165,14 +165,25 @@ const requestFromPage = (
         postToUi(pluginApi, { type: TYPE_EXCHANGE_REQUEST, nonce, ...fields });
     });
 
-export const exchangeViaPage = (
+export const startDeviceViaPage = (
     pluginApi: PluginAPI,
-    code: string,
-    verifier: string
-): Promise<ExchangeReply> => requestFromPage(pluginApi, { code, verifier });
+    scope: string
+): Promise<ExchangeReply> =>
+    requestFromPage(pluginApi, { grant: "device_authorization", scope });
+
+export const pollDeviceViaPage = (
+    pluginApi: PluginAPI,
+    deviceCode: string
+): Promise<ExchangeReply> =>
+    requestFromPage(pluginApi, { grant: "device_code", device_code: deviceCode });
 
 export const refreshViaPage = (
     pluginApi: PluginAPI,
-    refreshToken: string
+    refreshToken: string,
+    clientId: string = OAUTH_CLIENT_ID
 ): Promise<ExchangeReply> =>
-    requestFromPage(pluginApi, { grant: "refresh", refresh_token: refreshToken });
+    requestFromPage(pluginApi, {
+        grant: "refresh",
+        refresh_token: refreshToken,
+        client_id: clientId,
+    });

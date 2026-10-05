@@ -1,26 +1,22 @@
 import {
+    ACCOUNTS_ORIGIN,
+    DEVICE_CODE_DEFAULT_LIFETIME_S,
+    DEVICE_POLL_DEFAULT_INTERVAL_S,
+    DEVICE_POLL_OFFLINE_TOLERANCE,
+    DEVICE_POLL_SLOW_DOWN_MS,
+    OAUTH_CLIENT_ID,
+    OAUTH_SCOPES,
     SESSION_ENDED_ERR,
     SESSION_SCOPE_ERR,
     SIGNED_OUT_MSG,
     SIGNED_OUT_USING_KEY_MSG,
     SIGN_IN_CANCELLED_MSG,
     SIGN_IN_BLOCKED_ERR,
-    SIGN_IN_CODE_UNREADABLE_ERR,
-    SIGN_IN_DECLINED_ERR,
     SIGN_IN_FAILED_ERR,
-    SIGN_IN_NO_RANDOM_ERR,
     SIGN_IN_NOT_REMEMBERED_ERR,
-    SIGN_IN_NO_SESSION_ERR,
-    SIGN_IN_STATE_MISMATCH_ERR,
     SIGN_IN_TIMED_OUT_ERR,
     SIGN_IN_UNREACHABLE_ERR,
-    SIGN_IN_TIMEOUT_MS,
     TOKEN_EXPIRY_SKEW_MS,
-    ASSUMED_CODE_LIFETIME_MS,
-    RELAY_INSTANT_POLL_MS,
-    RELAY_OFFLINE_TOLERANCE,
-    RELAY_PACE_MS,
-    RELAY_SPARE_MAX_AGE_MS,
     TYPE_AUTH_STATE,
     TYPE_CREDENTIAL,
 } from "@constants/index";
@@ -28,14 +24,13 @@ import type { AuthState } from "@app-types/auth";
 import type { CredentialDescriptor } from "@app-types/credential";
 import { readApiKey } from "./apiKeyStorage";
 import { authLog } from "./authLog";
+import { endSession, tokenFromBody, type TokenResult } from "./oauthClient";
 import {
-    buildAuthorizeUrl,
-    endSession,
-    tokenFromBody,
-    type TokenResult,
-} from "./oauthClient";
-import { exchangeViaPage, refreshViaPage } from "./exchangePage";
-import { mintHandoff, pollHandoffOnce, type HandoffKeys } from "./relay";
+    pollDeviceViaPage,
+    refreshViaPage,
+    startDeviceViaPage,
+    type ExchangeReply,
+} from "./exchangePage";
 import {
     classifyInvalidGrant,
     clearOAuthRecord,
@@ -45,26 +40,19 @@ import {
     writeOAuthRecord,
     type OAuthRecord,
 } from "./oauthStorage";
-import { NoSecureRandomError, randomSourceFor } from "./entropy";
-import { createPkcePair, createState } from "./pkce";
-import { parseAuthorizationResponse, rendezvousMode } from "./rendezvous";
 import type { SandboxFetchFn } from "./sandboxFetch";
 import { postToUi } from "./UiBridge";
 
 interface PendingSignIn {
-    verifier: string;
-    state: string;
-    startedAt: number;
-    authorizeUrl: string;
-    keys?: HandoffKeys;
+    deviceCode: string;
+    userCode: string;
+    verificationUri: string;
+    verificationUriComplete?: string;
+    expiresAt: number;
+    intervalMs: number;
 }
 
 let pending: PendingSignIn | undefined;
-
-let armedFlow:
-    | { verifier: string; state: string; authorizeUrl: string; keys?: HandoffKeys }
-    | undefined;
-let arming = false;
 let pollGeneration = 0;
 let state: AuthState = { status: "idle" };
 let displayName: string | undefined;
@@ -125,9 +113,10 @@ const endOAuthSession = async (pluginApi: PluginAPI, reason: string) => {
 
 const refreshThroughPage = async (
     pluginApi: PluginAPI,
-    refreshToken: string
+    refreshToken: string,
+    clientId: string
 ): Promise<TokenResult> => {
-    const reply = await refreshViaPage(pluginApi, refreshToken);
+    const reply = await refreshViaPage(pluginApi, refreshToken, clientId);
 
     if (!reply.ok) {
         authLog("the exchange page could not spend the refresh token", {
@@ -138,7 +127,7 @@ const refreshThroughPage = async (
         return { ok: false, reason: reply.reason, detail: reply.error };
     }
 
-    return tokenFromBody(reply, "figma/auth.html (refresh_token)");
+    return tokenFromBody(reply, "figma/auth.html (refresh_token)", clientId);
 };
 
 const refreshRecord = async (
@@ -152,7 +141,11 @@ const refreshRecord = async (
     }
 
     setStateQuietly({ status: "working" });
-    const result = await refreshThroughPage(pluginApi, record.refreshToken);
+    const result = await refreshThroughPage(
+        pluginApi,
+        record.refreshToken,
+        record.clientId ?? OAUTH_CLIENT_ID
+    );
 
     if (result.ok) {
         const refreshed = {
@@ -244,254 +237,176 @@ export const activeCredential = async (
     };
 };
 
-const buildFlow = async (
-    pluginApi: PluginAPI,
-    fetchFn?: SandboxFetchFn
-): Promise<{ verifier: string; state: string; authorizeUrl: string; keys?: HandoffKeys }> => {
-    const random = randomSourceFor(pluginApi);
-    const { verifier, challenge } = await createPkcePair(random);
+const asText = (value: unknown): string | undefined =>
+    typeof value === "string" && value ? value : undefined;
 
-    if (rendezvousMode() === "relay") {
-        const keys = await mintHandoff(fetchFn);
-        return {
-            verifier,
-            state: keys.writeKey,
-            authorizeUrl: buildAuthorizeUrl({ state: keys.writeKey, challenge }),
-            keys,
-        };
+const asPositive = (value: unknown, fallback: number): number =>
+    typeof value === "number" && isFinite(value) && value > 0 ? value : fallback;
+
+// The plugin opens this address in the user's browser, so it must be the accounts
+// front end and nothing a tampered reply could substitute.
+const isVerificationUri = (value: string | undefined): value is string =>
+    !!value && value.indexOf(`${ACCOUNTS_ORIGIN}/`) === 0;
+
+const failureReason = (reason: string): string =>
+    reason === "blocked"
+        ? SIGN_IN_BLOCKED_ERR
+        : reason === "unreachable"
+          ? SIGN_IN_UNREACHABLE_ERR
+          : reason === "scope"
+            ? SESSION_SCOPE_ERR
+            : SIGN_IN_FAILED_ERR;
+
+const awaitingState = (flow: PendingSignIn): AuthState => ({
+    status: "awaiting",
+    userCode: flow.userCode,
+    verificationUri: flow.verificationUri,
+    verificationUriComplete: flow.verificationUriComplete,
+    expiresAt: flow.expiresAt,
+});
+
+const pendingFromReply = (reply: ExchangeReply): PendingSignIn | undefined => {
+    if (!reply.ok) return undefined;
+
+    const deviceCode = asText(reply.device_code);
+    const userCode = asText(reply.user_code);
+    const verificationUri = asText(reply.verification_uri);
+    const complete = asText(reply.verification_uri_complete);
+
+    if (!deviceCode || !userCode || !isVerificationUri(verificationUri)) {
+        authLog("the device authorization reply was unusable", {
+            hasDeviceCode: !!deviceCode,
+            userCode,
+            verificationUri,
+        });
+        return undefined;
     }
 
-    const csrfState = await createState(random);
     return {
-        verifier,
-        state: csrfState,
-        authorizeUrl: buildAuthorizeUrl({ state: csrfState, challenge }),
+        deviceCode,
+        userCode,
+        verificationUri,
+        verificationUriComplete: isVerificationUri(complete) ? complete : undefined,
+        expiresAt:
+            Date.now() + asPositive(reply.expires_in, DEVICE_CODE_DEFAULT_LIFETIME_S) * 1000,
+        intervalMs: asPositive(reply.interval, DEVICE_POLL_DEFAULT_INTERVAL_S) * 1000,
     };
 };
 
-export const armSignIn = async (
-    pluginApi: PluginAPI,
-    fetchFn?: SandboxFetchFn
-): Promise<void> => {
-    if (pending || armedFlow || arming) return;
-    if (state.status !== "idle") return;
-
-    arming = true;
-    try {
-        const flow = await buildFlow(pluginApi, fetchFn);
-        if (pending || armedFlow) return;
-        armedFlow = flow;
-        setState(pluginApi, { status: "armed", authorizeUrl: flow.authorizeUrl });
-    } catch (error) {
-        armedFlow = undefined;
-        const noRandom = error instanceof NoSecureRandomError;
-        authLog("could not arm the sign-in", { error: String(error) });
-        if (noRandom) setState(pluginApi, { status: "failed", reason: SIGN_IN_NO_RANDOM_ERR });
-    } finally {
-        arming = false;
-    }
-};
-
-export const startSignIn = async (
-    pluginApi: PluginAPI,
-    fetchFn?: SandboxFetchFn
-): Promise<void> => {
-    if (pending && Date.now() - pending.startedAt < SIGN_IN_TIMEOUT_MS) {
-        setState(pluginApi, {
-            status: "awaiting",
-            mode: rendezvousMode(),
-            authorizeUrl: pending.authorizeUrl,
-        });
+export const startSignIn = async (pluginApi: PluginAPI): Promise<void> => {
+    if (pending && Date.now() < pending.expiresAt) {
+        setState(pluginApi, awaitingState(pending));
         return;
     }
 
-    if (!armedFlow) setState(pluginApi, { status: "starting" });
-
-    try {
-        const armedIsStale =
-            !!armedFlow?.keys && Date.now() - armedFlow.keys.mintedAt > RELAY_SPARE_MAX_AGE_MS;
-        if (armedIsStale) authLog("the armed relay key pair went stale; minting another");
-        const ready =
-            armedFlow && !armedIsStale ? armedFlow : await buildFlow(pluginApi, fetchFn);
-        armedFlow = undefined;
-
-        pending = {
-            verifier: ready.verifier,
-            state: ready.state,
-            startedAt: Date.now(),
-            authorizeUrl: ready.authorizeUrl,
-            keys: ready.keys,
-        };
-
-        setState(pluginApi, {
-            status: "awaiting",
-            mode: rendezvousMode(),
-            authorizeUrl: ready.authorizeUrl,
-        });
-
-        if (ready.keys) void runRelayPoll(pluginApi, ready.keys, ++pollGeneration, fetchFn);
-    } catch (error) {
-        const noRandom = error instanceof NoSecureRandomError;
-        authLog("could not start the sign-in", { error: String(error) });
-        pending = undefined;
-        setState(pluginApi, {
-            status: "failed",
-            reason: noRandom ? SIGN_IN_NO_RANDOM_ERR : SIGN_IN_FAILED_ERR,
-        });
-    }
-};
-
-const runRelayPoll = async (
-    pluginApi: PluginAPI,
-    keys: HandoffKeys,
-    generation: number,
-    fetchFn?: SandboxFetchFn
-): Promise<void> => {
-    const deadline = keys.mintedAt + keys.expiresIn * 1000;
-    let offlineStreak = 0;
-
-    while (generation === pollGeneration) {
-        if (Date.now() > deadline) {
-            pending = undefined;
-            setState(pluginApi, { status: "failed", reason: SIGN_IN_TIMED_OUT_ERR });
-            void armSignIn(pluginApi);
-            return;
-        }
-
-        const startedAt = Date.now();
-        const outcome = await pollHandoffOnce(keys.readKey, fetchFn);
-        if (generation !== pollGeneration) return;
-
-        if (outcome.kind === "pending") {
-            offlineStreak = 0;
-            if (Date.now() - startedAt < RELAY_INSTANT_POLL_MS) {
-                await new Promise((resolve) => setTimeout(resolve, RELAY_PACE_MS));
-            }
-            continue;
-        }
-
-        if (outcome.kind === "offline") {
-            if (++offlineStreak >= RELAY_OFFLINE_TOLERANCE) {
-                pending = undefined;
-                authLog("gave up polling the relay", { reason: outcome.reason });
-                setState(pluginApi, { status: "failed", reason: SIGN_IN_UNREACHABLE_ERR });
-                void armSignIn(pluginApi);
-                return;
-            }
-            await new Promise((resolve) =>
-                setTimeout(resolve, Math.min(1000 * offlineStreak, 4000))
-            );
-            continue;
-        }
-
-        if (outcome.kind === "gone") {
-            pending = undefined;
-            authLog("the relay key is gone — expired, evicted or already used");
-            setState(pluginApi, { status: "failed", reason: SIGN_IN_NO_SESSION_ERR });
-            void armSignIn(pluginApi);
-            return;
-        }
-
-        if (outcome.kind === "refused") {
-            await submitAuthResponse(
-                pluginApi,
-                `error=${encodeURIComponent(outcome.error)}`
-            );
-            return;
-        }
-
-        if (outcome.ageMs !== undefined && outcome.ageMs > ASSUMED_CODE_LIFETIME_MS) {
-            pending = undefined;
-            authLog("the relay held the code too long to spend", { ageMs: outcome.ageMs });
-            setState(pluginApi, { status: "failed", reason: SIGN_IN_TIMED_OUT_ERR });
-            void armSignIn(pluginApi);
-            return;
-        }
-
-        await submitAuthResponse(
-            pluginApi,
-            `code=${encodeURIComponent(outcome.code)}&state=${encodeURIComponent(keys.writeKey)}`
-        );
-        return;
-    }
-};
-
-export const submitAuthResponse = async (
-    pluginApi: PluginAPI,
-    raw: string
-): Promise<void> => {
-    if (!pending) {
-        setState(pluginApi, { status: "failed", reason: SIGN_IN_NO_SESSION_ERR });
-        return;
-    }
-
-    if (Date.now() - pending.startedAt >= SIGN_IN_TIMEOUT_MS) {
-        pending = undefined;
-        setState(pluginApi, { status: "failed", reason: SIGN_IN_TIMED_OUT_ERR });
-        return;
-    }
-
-    const response = parseAuthorizationResponse(raw);
-
-    if (response.kind === "unreadable") {
-        setState(pluginApi, { status: "failed", reason: SIGN_IN_CODE_UNREADABLE_ERR });
-        return;
-    }
-
-    if (response.kind === "error") {
-        pending = undefined;
-        authLog("the authorization server refused the sign-in", {
-            error: response.error,
-            description: response.description,
-        });
-        setState(
-            pluginApi,
-            response.error === "access_denied"
-                ? { status: "denied" }
-                : { status: "failed", reason: SIGN_IN_DECLINED_ERR }
-        );
-        return;
-    }
-
-    if (response.state !== undefined && response.state !== pending.state) {
-        pending = undefined;
-        authLog("the authorization response carried a state that was not the one sent");
-        setState(pluginApi, { status: "failed", reason: SIGN_IN_STATE_MISMATCH_ERR });
-        return;
-    }
-
-    const verifier = pending.verifier;
     pending = undefined;
-    setState(pluginApi, { status: "working" });
+    const generation = ++pollGeneration;
+    setState(pluginApi, { status: "starting" });
 
-    const reply = await exchangeViaPage(pluginApi, response.code, verifier);
-    const result: TokenResult = reply.ok
-        ? tokenFromBody(reply, "figma/auth.html (authorization_code)")
-        : {
-              ok: false,
-              reason: reply.reason,
-              detail: reply.error,
-          };
+    const reply = await startDeviceViaPage(pluginApi, OAUTH_SCOPES.join(" "));
+    if (generation !== pollGeneration) return;
+
     if (!reply.ok) {
-        authLog("the exchange page could not spend the code", {
+        authLog("could not start the device sign-in", {
             error: reply.error,
+            oauthError: reply.oauthError,
             status: reply.status,
             throttled: reply.throttled,
         });
+        setState(pluginApi, { status: "failed", reason: failureReason(reply.reason) });
+        return;
     }
 
-    if (!result.ok) {
-        setState(pluginApi, {
-            status: "failed",
-            reason:
-                result.reason === "blocked"
-                    ? SIGN_IN_BLOCKED_ERR
-                    : result.reason === "unreachable"
-                      ? SIGN_IN_UNREACHABLE_ERR
-                      : result.reason === "scope"
-                        ? SESSION_SCOPE_ERR
-                        : SIGN_IN_FAILED_ERR,
+    const flow = pendingFromReply(reply);
+    if (!flow) {
+        setState(pluginApi, { status: "failed", reason: SIGN_IN_FAILED_ERR });
+        return;
+    }
+
+    pending = flow;
+    setState(pluginApi, awaitingState(flow));
+
+    try {
+        pluginApi.openExternal(flow.verificationUriComplete ?? flow.verificationUri);
+    } catch (error) {
+        // The panel still shows the code and a button that opens the page.
+        authLog("could not open the browser", { error: String(error) });
+    }
+
+    void runDevicePoll(pluginApi, flow, generation);
+};
+
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const runDevicePoll = async (
+    pluginApi: PluginAPI,
+    flow: PendingSignIn,
+    generation: number
+): Promise<void> => {
+    let intervalMs = flow.intervalMs;
+    let offlineStreak = 0;
+
+    const end = (next: AuthState) => {
+        pending = undefined;
+        setState(pluginApi, next);
+    };
+
+    while (generation === pollGeneration) {
+        await wait(intervalMs);
+        if (generation !== pollGeneration) return;
+
+        if (Date.now() >= flow.expiresAt) {
+            end({ status: "failed", reason: SIGN_IN_TIMED_OUT_ERR });
+            return;
+        }
+
+        const reply = await pollDeviceViaPage(pluginApi, flow.deviceCode);
+        if (generation !== pollGeneration) return;
+
+        if (reply.ok) {
+            pending = undefined;
+            await completeSignIn(pluginApi, reply);
+            return;
+        }
+
+        switch (reply.oauthError) {
+            case "authorization_pending":
+                offlineStreak = 0;
+                continue;
+            case "slow_down":
+                offlineStreak = 0;
+                intervalMs += DEVICE_POLL_SLOW_DOWN_MS;
+                continue;
+            case "access_denied":
+                end({ status: "denied" });
+                return;
+            case "expired_token":
+                end({ status: "failed", reason: SIGN_IN_TIMED_OUT_ERR });
+                return;
+        }
+
+        if (reply.reason === "unreachable" || reply.reason === "blocked") {
+            // A throttled poll is answered by waiting longer, never by polling sooner.
+            if (reply.throttled) intervalMs += DEVICE_POLL_SLOW_DOWN_MS;
+            if (++offlineStreak < DEVICE_POLL_OFFLINE_TOLERANCE) continue;
+        }
+
+        authLog("the device sign-in poll was refused", {
+            error: reply.error,
+            oauthError: reply.oauthError,
+            status: reply.status,
         });
+        end({ status: "failed", reason: failureReason(reply.reason) });
+        return;
+    }
+};
+
+const completeSignIn = async (pluginApi: PluginAPI, reply: ExchangeReply): Promise<void> => {
+    setState(pluginApi, { status: "working" });
+
+    const result = tokenFromBody(reply, "figma/auth.html (device_code)");
+    if (!result.ok) {
+        setState(pluginApi, { status: "failed", reason: failureReason(result.reason) });
         return;
     }
 
@@ -516,11 +431,9 @@ export const submitAuthResponse = async (
 export const cancelSignIn = async (pluginApi: PluginAPI): Promise<void> => {
     const wasPending = hasPendingSignIn();
     pending = undefined;
-    armedFlow = undefined;
     pollGeneration += 1;
     setState(pluginApi, { status: "idle" });
     if (wasPending) pluginApi.notify(SIGN_IN_CANCELLED_MSG);
-    await armSignIn(pluginApi);
 };
 
 export const signOut = async (
@@ -528,6 +441,7 @@ export const signOut = async (
     fetchFn?: SandboxFetchFn
 ): Promise<ActiveCredential> => {
     pending = undefined;
+    pollGeneration += 1;
     displayName = undefined;
 
     await clearOAuthRecord(pluginApi);
@@ -571,9 +485,6 @@ export const resetAuthSession = () => {
     displayName = undefined;
     refreshInFlight = undefined;
     pollGeneration += 1;
-    armedFlow = undefined;
-    arming = false;
 };
 
-export const hasPendingSignIn = (): boolean =>
-    !!pending && Date.now() - pending.startedAt < SIGN_IN_TIMEOUT_MS;
+export const hasPendingSignIn = (): boolean => !!pending && Date.now() < pending.expiresAt;

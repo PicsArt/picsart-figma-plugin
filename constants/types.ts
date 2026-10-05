@@ -30,7 +30,6 @@ export const TYPE_ACTION = "action" as const;
 export const TYPE_CREDENTIAL = "credential" as const;
 export const TYPE_AUTH_STATE = "auth-state" as const;
 export const TYPE_SIGN_IN = "sign-in" as const;
-export const TYPE_AUTH_RESPONSE = "auth-response" as const;
 export const TYPE_CANCEL_SIGN_IN = "cancel-sign-in" as const;
 export const TYPE_SIGN_OUT = "sign-out" as const;
 export const TYPE_REFRESH_CREDENTIAL = "refresh-credential" as const;
@@ -58,9 +57,6 @@ export const TYPE_RESIZE = "resize" as const;
 // how long the iframe needs before postMessage will be heard.
 export const TYPE_UI_READY = "ui-ready" as const;
 
-export const TYPE_REQUEST_RANDOM = "request-random" as const;
-export const TYPE_RANDOM_RESULT = "random-result" as const;
-
 export const TYPE_LOAD_EXCHANGE_PAGE = "load-exchange-page" as const;
 export const TYPE_EXCHANGE_PAGE_READY = "exchange-page-ready" as const;
 export const TYPE_EXCHANGE_REQUEST = "exchange-request" as const;
@@ -70,7 +66,6 @@ const TYPES = {
   TYPE_CREDENTIAL,
   TYPE_AUTH_STATE,
   TYPE_SIGN_IN,
-  TYPE_AUTH_RESPONSE,
   TYPE_CANCEL_SIGN_IN,
   TYPE_SIGN_OUT,
   TYPE_REFRESH_CREDENTIAL,
@@ -93,8 +88,6 @@ const TYPES = {
   TYPE_GET_BALANCE,
   TYPE_RESIZE,
   TYPE_UI_READY,
-  TYPE_REQUEST_RANDOM,
-  TYPE_RANDOM_RESULT,
   TYPE_LOAD_EXCHANGE_PAGE,
   TYPE_EXCHANGE_PAGE_READY,
   TYPE_EXCHANGE_REQUEST,

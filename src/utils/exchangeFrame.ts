@@ -63,7 +63,7 @@ export const loadExchangePage = (url: string): void => {
         console.error(
             `The Picsart sign-in page at ${url} did not answer within ` +
                 `${EXCHANGE_PAGE_READY_TIMEOUT_MS}ms. Signing in cannot complete: a plugin ` +
-                `cannot perform the token exchange itself.`
+                `cannot reach the Picsart auth server itself.`
         );
 
         const stranded = held;
@@ -86,7 +86,8 @@ export const forwardFromExchangePage = (event: MessageEvent): void => {
         announced = true;
         sendMessageToSandBox(true, "", TYPE_EXCHANGE_PAGE_READY, undefined, {
             clientId: message.clientId,
-            redirectUri: message.redirectUri,
+            deviceClientId: message.deviceClientId,
+            grants: message.grants,
             pageOrigin: message.origin,
             secureContext: message.secureContext,
         });
@@ -104,8 +105,14 @@ export const forwardFromExchangePage = (event: MessageEvent): void => {
             nonce: message.nonce,
             ok: !!message.ok,
             error: message.error,
+            oauth_error: message.oauth_error,
             status: message.status,
             throttled: message.throttled,
+            device_code: message.device_code,
+            user_code: message.user_code,
+            verification_uri: message.verification_uri,
+            verification_uri_complete: message.verification_uri_complete,
+            interval: message.interval,
             access_token: message.access_token,
             id_token: message.id_token,
             refresh_token: message.refresh_token,

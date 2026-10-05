@@ -98,9 +98,9 @@ export const SIGN_IN_CHOOSER_LEAD =
 export const SIGN_IN_CHOOSER_KEY_LEAD = "Or use a developer API key:" as const
 export const SIGN_IN_AWAITING_LEAD =
   "A Picsart sign-in page has opened in your browser. Approve it there, then come back here." as const
-export const SIGN_IN_PASTE_LEAD =
-  "Paste the address your browser ended up on, or just the code it shows:" as const
-export const SIGN_IN_PASTE_PLACEHOLDER = "Paste the address or code" as const
+export const SIGN_IN_CODE_LEAD =
+  "Approve only if the page shows this code:" as const
+export const signInCodeAt = (url: string) => `Page didn't open? Go to ${url} and enter the code.`
 export const SIGN_IN_POLLING_LEAD = "Waiting for Picsart to confirm…" as const
 export const SIGN_IN_CONFIRMED_LEAD = "You're signed in with your Picsart account." as const
 export const signedInAs = (name: string) => `Signed in as ${name}.`

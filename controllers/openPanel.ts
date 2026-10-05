@@ -1,7 +1,6 @@
 import { TYPE_TAB } from "@constants/index";
 import {
   activeCredential,
-  armSignIn,
   postAuthState,
   postCredential,
   type ActiveCredential,
@@ -89,8 +88,6 @@ const openPanel = async (
   postCredential(pluginApi, active);
 
   postAuthState(pluginApi);
-
-  void armSignIn(pluginApi);
 
   loadExchangePage(pluginApi);
 
