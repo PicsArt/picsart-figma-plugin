@@ -168,8 +168,18 @@ const requestFromPage = (
 export const startDeviceViaPage = (
     pluginApi: PluginAPI,
     scope: string
-): Promise<ExchangeReply> =>
-    requestFromPage(pluginApi, { grant: "device_authorization", scope });
+): Promise<ExchangeReply> => {
+    // An older page treats an unknown grant as a code exchange and answers with no
+    // status, which would read as the user's network. Say whose problem it is instead.
+    if (page && (!page.grants || page.grants.indexOf("device_authorization") === -1)) {
+        return Promise.resolve({
+            ok: false,
+            reason: "blocked",
+            error: `the exchange page at ${EXCHANGE_PAGE_URL} predates the device grant`,
+        });
+    }
+    return requestFromPage(pluginApi, { grant: "device_authorization", scope });
+};
 
 export const pollDeviceViaPage = (
     pluginApi: PluginAPI,

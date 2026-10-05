@@ -120,6 +120,20 @@ describe("loadExchangePage", () => {
 });
 
 describe("requests through the page", () => {
+    it("refuses a device sign-in on a page that predates the device grant, as Picsart's fault", async () => {
+        const { api, posted } = makeApi();
+        beginUiSession(api);
+        ready(api);
+        loadExchangePage(api);
+        announce(api, { deviceClientId: undefined, grants: undefined });
+
+        await expect(startDeviceViaPage(api, "profile workflows.execute")).resolves.toMatchObject({
+            ok: false,
+            reason: "blocked",
+        });
+        expect(posted.some((msg) => msg.type === TYPE_EXCHANGE_REQUEST)).toBe(false);
+    });
+
     it("asks for a device code and resolves with what the auth server issued", async () => {
         const { api, posted } = makeApi();
         beginUiSession(api);

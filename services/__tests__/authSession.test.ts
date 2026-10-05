@@ -388,6 +388,39 @@ describe("the device poll", () => {
         expect(dead.polls()).toBe(DEVICE_POLL_OFFLINE_TOLERANCE);
     });
 
+    it("backs off on a readable 429 instead of ending the sign-in", async () => {
+        vi.useFakeTimers();
+        try {
+            const limited: ExchangeStubReply = {
+                ok: false,
+                status: 429,
+                throttled: true,
+                error: "the auth server is rate limiting this client (HTTP 429)",
+            };
+            const exchange = device([limited, exchanged()]);
+            const stub = makeFigmaStub({
+                exchange: (msg) =>
+                    msg.grant === "device_authorization"
+                        ? (exchange(msg), deviceCodes({ interval: 5 }))
+                        : exchange(msg),
+            });
+            ready(stub);
+
+            await startSignIn(stub.api);
+            await vi.advanceTimersByTimeAsync(5000);
+            expect(exchange.polls()).toBe(1);
+            expect(lastState(stub)).toMatchObject({ status: "awaiting" });
+
+            await vi.advanceTimersByTimeAsync(9999);
+            expect(exchange.polls()).toBe(1);
+            await vi.advanceTimersByTimeAsync(1);
+            expect(exchange.polls()).toBe(2);
+            await vi.waitFor(() => expect(lastState(stub)).toMatchObject({ status: "signedIn" }));
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it("stops polling when the user cancels, so a late approval cannot sign them in anyway", async () => {
         let approve = false;
         const exchange = device();

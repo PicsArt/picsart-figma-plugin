@@ -385,7 +385,8 @@ const runDevicePoll = async (
                 return;
         }
 
-        if (reply.reason === "unreachable" || reply.reason === "blocked") {
+        // A readable 429 arrives with a status, so it classifies as "http", not "blocked".
+        if (reply.reason === "unreachable" || reply.reason === "blocked" || reply.throttled) {
             // A throttled poll is answered by waiting longer, never by polling sooner.
             if (reply.throttled) intervalMs += DEVICE_POLL_SLOW_DOWN_MS;
             if (++offlineStreak < DEVICE_POLL_OFFLINE_TOLERANCE) continue;
