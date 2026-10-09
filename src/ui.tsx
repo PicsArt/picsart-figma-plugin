@@ -1,3 +1,6 @@
+import Agents from "./components/Agents/Agents";
+import AgentsSignIn from "./components/Agents/AgentsSignIn";
+import { AGENTS_BETA } from "@constants/agents";
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { BalanceProvider, useBalance } from "./context/BalanceContext";
@@ -63,7 +66,7 @@ export const App = () => {
   // Generate Image is the first tab across all four surfaces now: the manifest
   // menu, the navbar order, IntroController's landing tab for a keyless user, and
   // this initial state. A partial promotion reads as a bug rather than a decision.
-  const [tab, setTab] = useState<TabType>(TabType.GENERATE_IMAGE);
+  const [tab, setTab] = useState<TabType>(AGENTS_BETA ? TabType.AGENTS : TabType.GENERATE_IMAGE);
   const { setBalance, balance } = useBalance();
   const { credential, apiKey, setActive } = useCredential();
   const [authState, setAuthState] = useState<AuthState>({ status: "idle" });
@@ -129,12 +132,15 @@ export const App = () => {
   const renderPage = () => {
     const active = credential!;
     switch (tab) {
+      case TabType.AGENTS:
+        return AGENTS_BETA ? <Agents onSignIn={startSignIn} /> : null;
       case TabType.TAB_REMOVE_BACKGROUND_INSTANTLY:
         return <RemoveBackgroundHidden gottenKey={active} />;
       case TabType.REMOVE_BACKGROUND:
         return (
           <RemoveBackground
             gottenKey={active}
+            balanceKnown={balanceKnown}
             isCreditsInsufficient={isCreditsInsufficient}
             isOffline={isOffline}
           />
@@ -143,6 +149,7 @@ export const App = () => {
         return (
           <Upscale
             gottenKey={active}
+            balanceKnown={balanceKnown}
             isCreditsInsufficient={isCreditsInsufficient}
             isOffline={isOffline}
           />
@@ -151,6 +158,7 @@ export const App = () => {
         return (
           <GenerateImage
             gottenKey={active}
+            balanceKnown={balanceKnown}
             isCreditsInsufficient={isCreditsInsufficient}
             isOffline={isOffline}
           />
@@ -193,6 +201,7 @@ export const App = () => {
         setActive(next?.credential ?? null, next?.apiKey ?? "");
         setIsActive(() => true);
         setBalanceKnown(false);
+        setIsCreditsInsufficient(false);
         sendMessageToSandBox(true, "", TYPE_GET_BALANCE);
       }
       else if (type === TYPE_REQUEST_RANDOM) {
@@ -233,9 +242,10 @@ export const App = () => {
         setTab(payload);
       } else if (type === TYPE_GET_BALANCE) {
         setIsActive(() => true);
-        setBalance(payload);
-        setBalanceKnown(true);
-        setIsCreditsInsufficient(payload <= 0);
+        const known = typeof payload === "number" && Number.isFinite(payload);
+        if (known) setBalance(() => payload);
+        setBalanceKnown(known);
+        setIsCreditsInsufficient(known && payload <= 0);
       }
     };
 
@@ -251,8 +261,9 @@ export const App = () => {
     };
   }, []);
 
+  const SignInScreen = AGENTS_BETA && tab === TabType.AGENTS ? AgentsSignIn : SignIn;
   const signInScreen = (
-    <SignIn
+    <SignInScreen
       authState={authState}
       showConfirmation={showConfirmation}
       hasApiKey={!!apiKey}
@@ -267,12 +278,12 @@ export const App = () => {
   );
 
   return (
-    <div className="main-content">
-      {credential && <Navbar gottenKey={credential} tab={tab} />}
+    <div className={`main-content ${tab === TabType.AGENTS ? "agents-panel" : ""}`}>
+      {credential && tab !== TabType.AGENTS && <Navbar gottenKey={credential} tab={tab} />}
       <div className="scrollable-content">
         {signInOwnsPanel
           ? signInScreen
-          : credential
+          : credential || (AGENTS_BETA && tab === TabType.AGENTS)
             ? renderPage()
             : <IntroPage onSignIn={startSignIn} />}
       </div>
@@ -291,6 +302,7 @@ export const App = () => {
         <div className="bottom-banner">
           {(tab === TabType.REMOVE_BACKGROUND || tab === TabType.UPSCALE || tab === TabType.GENERATE_IMAGE) && (
             <BalanceBanner
+              balanceKnown={balanceKnown}
               gottenKey={credential}
               isCreditsInsufficient={isCreditsInsufficient}
               setIsCreditsInsufficient={setIsCreditsInsufficient}
