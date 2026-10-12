@@ -67,7 +67,7 @@ retained, so signing out falls back to a retained key rather than locking the pl
    session; the two are independent.
 
 **Sign in with a Picsart account** (`picsart_oauth`) — the OAuth device grant (RFC 8628) for
-client `auth-service-PluginClient`. The panel shows a code, the browser opens
+client `auth-service-Figma`. The panel shows a code, the browser opens
 `accounts.picsart.com/device`, and the plugin polls until the person approves there. Every
 auth-server request goes through `api.picsart.io/v1/figma/auth.html` (api-gw-b2b), because
 neither plugin realm may call `auth.picsart.com` itself. **Not yet confirmed against a live

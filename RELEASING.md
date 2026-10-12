@@ -104,7 +104,7 @@ cycle than one that does not — which is why these two landed ahead of the acco
 code that now uses them.
 
 **Sign-in needs no further domain.** It is the RFC 8628 device grant for the
-`auth-service-PluginClient` client: the plugin opens `accounts.picsart.com/device` in the
+`auth-service-Figma` client: the plugin opens `accounts.picsart.com/device` in the
 user's browser with `figma.openExternal` (not gated by `allowedDomains`) and polls for the
 token. Neither plugin realm can call `auth.picsart.com` directly — both send
 `Origin: null`, which it refuses — so every auth-server request goes through

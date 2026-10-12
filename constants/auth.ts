@@ -11,7 +11,7 @@ export const OAUTH_SCOPES = ["profile", "workflows.execute"] as const;
 
 export const REQUIRED_OAUTH_SCOPES = ["workflows.execute"] as const;
 
-export const OAUTH_CLIENT_ID = "auth-service-PluginClient" as const;
+export const OAUTH_CLIENT_ID = "auth-service-Figma" as const;
 
 // Neither plugin realm can reach auth.picsart.com (both send `Origin: null`, which
 // it refuses), so every auth-server request goes through this page, framed hidden
