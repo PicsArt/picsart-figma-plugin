@@ -103,16 +103,14 @@ Neither `https://api.picsart.com` nor `https://picsart.com` belongs in
 cycle than one that does not — which is why these two landed ahead of the account-auth
 code that now uses them.
 
-**One domain is deliberately still absent, and it is the next one to think about.** The
-sign-in rendezvous is `AUTH_RENDEZVOUS.mode = "paste"` (`constants/auth.ts`): the user
-copies the redirected address out of their browser and pastes it into the panel, so the
-plugin never fetches the redirect host and never navigates the iframe to it — which is
-exactly why no entry is needed for it today. Switching the mode to `"relay"`, so the
-iframe polls a host we control instead of asking for a paste, **adds that origin to
-`allowedDomains` and therefore costs a review cycle**. It also needs a newly registered
-`client_id`, because a redirect URI is fixed at registration and this authorization
-server publishes no RFC 7592 management. If both are wanted, they belong in the same
-submission. `services/rendezvous.ts` lists the four things that change and nothing else.
+**Sign-in needs no further domain.** It is the RFC 8628 device grant for the
+`auth-service-Figma` client: the plugin opens `accounts.picsart.com/device` in the
+user's browser with `figma.openExternal` (not gated by `allowedDomains`) and polls for the
+token. Neither plugin realm can call `auth.picsart.com` directly — both send
+`Origin: null`, which it refuses — so every auth-server request goes through
+`https://api.picsart.io/v1/figma/auth.html`, a page served by api-gw-b2b and framed hidden
+in the panel. That page pins the client id on its side too, so **a client change is a
+gateway deploy as well as a plugin release**, and the gateway must ship first.
 
 ## 4. Bump the version
 

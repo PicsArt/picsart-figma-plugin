@@ -3,7 +3,6 @@ import React from "react";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  TYPE_AUTH_RESPONSE,
   TYPE_CANCEL_SIGN_IN,
   SIGN_IN_DECLINED_ERR,
   SIGN_IN_TIMED_OUT_ERR,
@@ -17,8 +16,10 @@ import SignIn from "../SignIn";
 
 const AWAITING: AuthState = {
   status: "awaiting",
-  mode: "paste",
-  authorizeUrl: "https://auth.picsart.com/api/oauth2/authorize?state=s1",
+  userCode: "WDJB-MJHT",
+  verificationUri: "https://accounts.picsart.com/device",
+  verificationUriComplete: "https://accounts.picsart.com/device?user_code=WDJB-MJHT",
+  expiresAt: Date.now() + 300_000,
 };
 
 const props = (over: Partial<React.ComponentProps<typeof SignIn>> = {}) => ({
@@ -49,7 +50,7 @@ afterEach(() => {
 });
 
 describe("opening the browser", () => {
-  it("does not open a window on render — the click already did, in ui.tsx", () => {
+  it("does not open a window on render — the sandbox already opened the page", () => {
     render(<SignIn {...props()} />);
     expect(opened).not.toHaveBeenCalled();
   });
@@ -66,7 +67,7 @@ describe("opening the browser", () => {
     fireEvent.click(screen.getByText("Open the sign-in page again"));
     expect(opened).toHaveBeenCalledTimes(1);
     expect(opened).toHaveBeenCalledWith(
-      AWAITING.status === "awaiting" ? AWAITING.authorizeUrl : "",
+      "https://accounts.picsart.com/device?user_code=WDJB-MJHT",
       "_blank",
       "noopener,noreferrer"
     );
@@ -82,53 +83,33 @@ describe("the waiting screen", () => {
     expect(mocks.sendMessageToSandBox).toHaveBeenCalledWith(true, "", TYPE_CANCEL_SIGN_IN);
   });
 
-  it("submits the paste as raw text, without parsing it first", () => {
+  it("shows the code the person must match on the accounts page", () => {
     render(<SignIn {...props()} />);
 
-    fireEvent.change(screen.getByPlaceholderText("Paste the address or code"), {
-      target: { value: "  http://localhost:8080/callback.html?code=ac%3Ax&state=s1  " },
-    });
-    fireEvent.click(screen.getByText("Submit"));
-
-    expect(mocks.sendMessageToSandBox).toHaveBeenCalledWith(
-      true,
-      "http://localhost:8080/callback.html?code=ac%3Ax&state=s1",
-      TYPE_AUTH_RESPONSE
-    );
+    expect(screen.getByLabelText("Sign-in code").textContent).toBe("WDJB-MJHT");
   });
 
-  it("submits on Enter, which the control alone would not cover", () => {
+  it("says where to type the code when the browser did not open", () => {
     render(<SignIn {...props()} />);
-    const input = screen.getByPlaceholderText("Paste the address or code");
 
-    fireEvent.change(input, { target: { value: "ac:abc12345" } });
-    fireEvent.keyDown(input, { key: "Enter" });
-
-    expect(mocks.sendMessageToSandBox).toHaveBeenCalledWith(
-      true,
-      "ac:abc12345",
-      TYPE_AUTH_RESPONSE
-    );
+    expect(screen.getByText(/https:\/\/accounts\.picsart\.com\/device and enter the code/)).toBeTruthy();
   });
 
-  it("refuses an empty submit, and refuses a second one", () => {
-    render(<SignIn {...props()} />);
-
-    fireEvent.click(screen.getByText("Submit"));
-    expect(
-      mocks.sendMessageToSandBox.mock.calls.filter((call) => call[2] === TYPE_AUTH_RESPONSE)
-    ).toHaveLength(0);
-
-    fireEvent.change(screen.getByPlaceholderText("Paste the address or code"), {
-      target: { value: "ac:abc12345" },
-    });
-    fireEvent.click(screen.getByText("Submit"));
-    fireEvent.click(screen.getByText("Submit"));
-
-    const submissions = mocks.sendMessageToSandBox.mock.calls.filter(
-      (call) => call[2] === TYPE_AUTH_RESPONSE
+  it("re-opens the plain page when there is no shortcut link", () => {
+    render(
+      <SignIn
+        {...props({
+          authState: { ...AWAITING, verificationUriComplete: undefined } as AuthState,
+        })}
+      />
     );
-    expect(submissions).toHaveLength(1);
+
+    fireEvent.click(screen.getByText("Open the sign-in page again"));
+    expect(opened).toHaveBeenCalledWith(
+      "https://accounts.picsart.com/device",
+      "_blank",
+      "noopener,noreferrer"
+    );
   });
 
   it("announces its transitions through one polite live region", () => {

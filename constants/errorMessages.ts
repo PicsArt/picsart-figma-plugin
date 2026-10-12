@@ -52,20 +52,12 @@ export const SIGN_IN_CANCELLED_MSG =
   "Sign-in cancelled. Nothing was changed."
 export const SIGN_IN_TIMED_OUT_ERR =
   "The sign-in wasn't completed in time. Start it again, or use an API key instead."
-export const SIGN_IN_CODE_UNREADABLE_ERR =
-  "That doesn't contain an authorization code. Paste the whole address from your browser, or just the code itself."
-export const SIGN_IN_STATE_MISMATCH_ERR =
-  "This sign-in couldn't be verified, so it wasn't accepted. Start a new sign-in."
-export const SIGN_IN_NO_SESSION_ERR =
-  "This sign-in has already ended. Start a new one."
 export const SIGN_IN_UNREACHABLE_ERR =
   "Couldn't reach Picsart to finish signing in. Check your connection and try again."
 export const SIGN_IN_BLOCKED_ERR =
   "Picsart's sign-in service wouldn't answer the plugin — this needs fixing on Picsart's side, not by you. Use an API key for now, and please report it."
 export const SIGN_IN_FAILED_ERR =
   "Couldn't finish signing in. Try again, or use an API key instead."
-export const SIGN_IN_NO_RANDOM_ERR =
-  "Sign-in isn't available in this version of the plugin — it can't generate the security code it needs. Use an API key for now, and please tell us on the Support tab."
 export const SIGN_IN_NOT_REMEMBERED_ERR =
   "You're signed in, but it couldn't be saved — you'll need to sign in again next time you open the plugin."
 export const SESSION_ENDED_ERR =
@@ -106,9 +98,6 @@ export default {
     SIGN_IN_DECLINED_ERR,
     SIGN_IN_CANCELLED_MSG,
     SIGN_IN_TIMED_OUT_ERR,
-    SIGN_IN_CODE_UNREADABLE_ERR,
-    SIGN_IN_STATE_MISMATCH_ERR,
-    SIGN_IN_NO_SESSION_ERR,
     SIGN_IN_UNREACHABLE_ERR,
     SIGN_IN_BLOCKED_ERR,
     SIGN_IN_FAILED_ERR,

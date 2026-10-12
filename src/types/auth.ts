@@ -1,11 +1,16 @@
-import type { AuthRendezvousMode } from "@constants/auth";
 import type { CredentialDescriptor } from "./credential";
 
 export type AuthState =
   | { status: "idle" }
-  | { status: "armed"; authorizeUrl: string }
   | { status: "starting" }
-  | { status: "awaiting"; mode: AuthRendezvousMode; authorizeUrl: string }
+  | {
+      status: "awaiting";
+      /** Shown in the panel; the accounts page shows it back for the user to match. */
+      userCode: string;
+      verificationUri: string;
+      verificationUriComplete?: string;
+      expiresAt: number;
+    }
   | { status: "working" }
   | {
       status: "signedIn";

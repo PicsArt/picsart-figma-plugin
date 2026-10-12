@@ -1,17 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
     exchangePageInfo,
-    exchangeViaPage,
     loadExchangePage,
+    pollDeviceViaPage,
     refreshViaPage,
     resetExchangePage,
+    startDeviceViaPage,
 } from "../exchangePage";
 import { beginUiSession, resetUiBridge } from "../UiBridge";
 import {
     EXCHANGE_PAGE_URL,
     EXCHANGE_TIMEOUT_MS,
     OAUTH_CLIENT_ID,
-    OAUTH_REDIRECT_URI,
     TYPE_EXCHANGE_PAGE_READY,
     TYPE_EXCHANGE_REQUEST,
     TYPE_EXCHANGE_RESULT,
@@ -42,8 +42,9 @@ const ready = (api: PluginAPI) => fromUi(api, { type: "ui-ready" });
 const announce = (api: PluginAPI, over: Posted = {}) =>
     fromUi(api, {
         type: TYPE_EXCHANGE_PAGE_READY,
-        clientId: OAUTH_CLIENT_ID,
-        redirectUri: OAUTH_REDIRECT_URI,
+        clientId: "dcr-1e37e9dd-0f8d-4927-800b-b0eac86b62f8",
+        deviceClientId: OAUTH_CLIENT_ID,
+        grants: ["authorization_code", "refresh", "device_authorization", "device_code"],
         pageOrigin: "https://api.picsart.io",
         secureContext: true,
         ...over,
@@ -86,8 +87,8 @@ describe("loadExchangePage", () => {
         announce(api);
 
         expect(exchangePageInfo()).toMatchObject({
-            clientId: OAUTH_CLIENT_ID,
-            redirectUri: OAUTH_REDIRECT_URI,
+            deviceClientId: OAUTH_CLIENT_ID,
+            grants: expect.arrayContaining(["device_code"]),
         });
     });
 
@@ -98,26 +99,83 @@ describe("loadExchangePage", () => {
         ready(api);
         loadExchangePage(api);
 
-        announce(api, { clientId: "dcr-somebody-elses" });
+        announce(api, { deviceClientId: "dcr-somebody-elses" });
 
         const said = logged.mock.calls.map((call) => String(call[0])).join(" ");
         expect(said).toContain("different client");
     });
+
+    it("says so when the deployed page predates the device grant", () => {
+        const logged = console.error as unknown as ReturnType<typeof vi.fn>;
+        const { api } = makeApi();
+        beginUiSession(api);
+        ready(api);
+        loadExchangePage(api);
+
+        announce(api, { deviceClientId: undefined, grants: undefined });
+
+        const said = logged.mock.calls.map((call) => String(call[0])).join(" ");
+        expect(said).toContain("predates the device grant");
+    });
 });
 
-describe("exchangeViaPage", () => {
-    it("hands the code down and resolves with the token body", async () => {
+describe("requests through the page", () => {
+    it("refuses a device sign-in on a page that predates the device grant, as Picsart's fault", async () => {
+        const { api, posted } = makeApi();
+        beginUiSession(api);
+        ready(api);
+        loadExchangePage(api);
+        announce(api, { deviceClientId: undefined, grants: undefined });
+
+        await expect(startDeviceViaPage(api, "profile workflows.execute")).resolves.toMatchObject({
+            ok: false,
+            reason: "blocked",
+        });
+        expect(posted.some((msg) => msg.type === TYPE_EXCHANGE_REQUEST)).toBe(false);
+    });
+
+    it("asks for a device code and resolves with what the auth server issued", async () => {
         const { api, posted } = makeApi();
         beginUiSession(api);
         ready(api);
         loadExchangePage(api);
         announce(api);
 
-        const pending = exchangeViaPage(api, "ac:code", "the-verifier");
+        const pending = startDeviceViaPage(api, "profile workflows.execute");
 
         const request = posted.find((msg) => msg.type === TYPE_EXCHANGE_REQUEST);
-        expect(request).toMatchObject({ code: "ac:code", verifier: "the-verifier" });
+        expect(request).toMatchObject({
+            grant: "device_authorization",
+            scope: "profile workflows.execute",
+        });
+        fromUi(api, {
+            type: TYPE_EXCHANGE_RESULT,
+            nonce: request?.nonce,
+            ok: true,
+            device_code: "dc:abc",
+            user_code: "WDJB-MJHT",
+            interval: 5,
+        });
 
+        await expect(pending).resolves.toMatchObject({
+            ok: true,
+            device_code: "dc:abc",
+            user_code: "WDJB-MJHT",
+            interval: 5,
+        });
+    });
+
+    it("polls with the device code and resolves with the token body", async () => {
+        const { api, posted } = makeApi();
+        beginUiSession(api);
+        ready(api);
+        loadExchangePage(api);
+        announce(api);
+
+        const pending = pollDeviceViaPage(api, "dc:abc");
+
+        const request = posted.find((msg) => msg.type === TYPE_EXCHANGE_REQUEST);
+        expect(request).toMatchObject({ grant: "device_code", device_code: "dc:abc" });
         fromUi(api, {
             type: TYPE_EXCHANGE_RESULT,
             nonce: request?.nonce,
@@ -127,6 +185,31 @@ describe("exchangeViaPage", () => {
         });
 
         await expect(pending).resolves.toMatchObject({ ok: true, access_token: "at" });
+    });
+
+    it("carries the auth server's error code, so a pending poll is not read as a failure", async () => {
+        const { api, posted } = makeApi();
+        beginUiSession(api);
+        ready(api);
+        loadExchangePage(api);
+        announce(api);
+
+        const pending = pollDeviceViaPage(api, "dc:abc");
+        const request = posted.find((msg) => msg.type === TYPE_EXCHANGE_REQUEST);
+        fromUi(api, {
+            type: TYPE_EXCHANGE_RESULT,
+            nonce: request?.nonce,
+            ok: false,
+            status: 400,
+            oauth_error: "authorization_pending",
+            error: 'auth request failed: HTTP 400 {"error":"authorization_pending"}',
+        });
+
+        await expect(pending).resolves.toMatchObject({
+            ok: false,
+            reason: "http",
+            oauthError: "authorization_pending",
+        });
     });
 
     it("hands a refresh token down under its own grant", async () => {
@@ -139,9 +222,11 @@ describe("exchangeViaPage", () => {
         const pending = refreshViaPage(api, "rt:stored");
 
         const request = posted.find((msg) => msg.type === TYPE_EXCHANGE_REQUEST);
-        expect(request).toMatchObject({ grant: "refresh", refresh_token: "rt:stored" });
-        expect(request).not.toHaveProperty("code");
-        expect(request).not.toHaveProperty("verifier");
+        expect(request).toMatchObject({
+            grant: "refresh",
+            refresh_token: "rt:stored",
+            client_id: OAUTH_CLIENT_ID,
+        });
 
         fromUi(api, {
             type: TYPE_EXCHANGE_RESULT,
@@ -165,7 +250,7 @@ describe("exchangeViaPage", () => {
         loadExchangePage(api);
         announce(api);
 
-        const code = exchangeViaPage(api, "ac:code", "the-verifier");
+        const poll = pollDeviceViaPage(api, "dc:abc");
         const refresh = refreshViaPage(api, "rt:stored");
 
         const requests = posted.filter((msg) => msg.type === TYPE_EXCHANGE_REQUEST);
@@ -173,9 +258,9 @@ describe("exchangeViaPage", () => {
         expect(requests[0].nonce).not.toBe(requests[1].nonce);
 
         fromUi(api, { type: TYPE_EXCHANGE_RESULT, nonce: requests[1].nonce, ok: true, access_token: "from-refresh" });
-        fromUi(api, { type: TYPE_EXCHANGE_RESULT, nonce: requests[0].nonce, ok: true, access_token: "from-code" });
+        fromUi(api, { type: TYPE_EXCHANGE_RESULT, nonce: requests[0].nonce, ok: true, access_token: "from-poll" });
 
-        await expect(code).resolves.toMatchObject({ access_token: "from-code" });
+        await expect(poll).resolves.toMatchObject({ access_token: "from-poll" });
         await expect(refresh).resolves.toMatchObject({ access_token: "from-refresh" });
     });
 
@@ -187,7 +272,7 @@ describe("exchangeViaPage", () => {
         loadExchangePage(api);
         announce(api);
 
-        const pending = exchangeViaPage(api, "ac:code", "v");
+        const pending = pollDeviceViaPage(api, "dc:abc");
         const settled = vi.fn();
         void pending.then(settled);
 
@@ -212,7 +297,7 @@ describe("exchangeViaPage", () => {
         loadExchangePage(api);
         announce(api);
 
-        const pending = exchangeViaPage(api, "ac:code", "v");
+        const pending = pollDeviceViaPage(api, "dc:abc");
         const request = posted.find((msg) => msg.type === TYPE_EXCHANGE_REQUEST);
         fromUi(api, {
             type: TYPE_EXCHANGE_RESULT,
@@ -232,14 +317,15 @@ describe("exchangeViaPage", () => {
         loadExchangePage(api);
         announce(api);
 
-        const pending = exchangeViaPage(api, "ac:code", "v");
+        const pending = pollDeviceViaPage(api, "dc:abc");
         const request = posted.find((msg) => msg.type === TYPE_EXCHANGE_REQUEST);
         fromUi(api, {
             type: TYPE_EXCHANGE_RESULT,
             nonce: request?.nonce,
             ok: false,
             status: 400,
-            error: "token exchange failed: HTTP 400 invalid_grant",
+            oauth_error: "invalid_grant",
+            error: 'auth request failed: HTTP 400 {"error":"invalid_grant"}',
         });
 
         await expect(pending).resolves.toMatchObject({ reason: "invalid_grant" });
@@ -252,7 +338,7 @@ describe("exchangeViaPage", () => {
         loadExchangePage(api);
         announce(api);
 
-        const pending = exchangeViaPage(api, "ac:code", "v");
+        const pending = pollDeviceViaPage(api, "dc:abc");
         const request = posted.find((msg) => msg.type === TYPE_EXCHANGE_REQUEST);
         fromUi(api, {
             type: TYPE_EXCHANGE_RESULT,
@@ -272,7 +358,7 @@ describe("exchangeViaPage", () => {
         loadExchangePage(api);
         announce(api);
 
-        const pending = exchangeViaPage(api, "ac:code", "v");
+        const pending = pollDeviceViaPage(api, "dc:abc");
         await vi.advanceTimersByTimeAsync(EXCHANGE_TIMEOUT_MS + 1);
 
         await expect(pending).resolves.toMatchObject({ ok: false, reason: "unreachable" });
@@ -285,7 +371,7 @@ describe("exchangeViaPage", () => {
         ready(api);
         loadExchangePage(api);
 
-        const pending = exchangeViaPage(api, "ac:code", "v");
+        const pending = pollDeviceViaPage(api, "dc:abc");
         await vi.advanceTimersByTimeAsync(EXCHANGE_TIMEOUT_MS + 1);
 
         await expect(pending).resolves.toMatchObject({ ok: false, reason: "blocked" });
@@ -301,7 +387,7 @@ describe("exchangeViaPage", () => {
         beginUiSession(api);
         ready(api);
 
-        const pending = exchangeViaPage(api, "ac:code", "v");
+        const pending = pollDeviceViaPage(api, "dc:abc");
 
         fromUi(api, { type: TYPE_EXCHANGE_RESULT, nonce: 1, ok: true, access_token: "at" });
 

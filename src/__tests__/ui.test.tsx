@@ -22,7 +22,12 @@
 import React from "react";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { TYPE_AUTH_STATE, TYPE_CREDENTIAL, TYPE_VALIDATE_KEY } from "@constants/types";
+import {
+  TYPE_AUTH_STATE,
+  TYPE_CREDENTIAL,
+  TYPE_SIGN_IN,
+  TYPE_VALIDATE_KEY,
+} from "@constants/types";
 
 const mocks = vi.hoisted(() => ({
   sendMessageToSandBox: vi.fn(),
@@ -200,21 +205,17 @@ describe("credential validation replies", () => {
     );
   });
 
-  it("opens the browser INSIDE the click, from the armed URL", () => {
+  it("leaves opening the browser to the sandbox, which has the URL only after the click", () => {
     const opened = vi.fn();
     vi.stubGlobal("open", opened);
-    const armedUrl = "https://auth.picsart.com/api/oauth2/authorize?state=armed-1";
     try {
       renderApp();
-      act(() => {
-        window.dispatchEvent(
-          fromSandbox({ type: TYPE_AUTH_STATE, payload: { status: "armed", authorizeUrl: armedUrl } })
-        );
-      });
+      mocks.sendMessageToSandBox.mockClear();
 
       fireEvent.click(screen.getByTestId("signin-cta"));
 
-      expect(opened).toHaveBeenCalledWith(armedUrl, "_blank", "noopener,noreferrer");
+      expect(mocks.sendMessageToSandBox).toHaveBeenCalledWith(true, "", TYPE_SIGN_IN);
+      expect(opened).not.toHaveBeenCalled();
     } finally {
       vi.unstubAllGlobals();
     }
@@ -231,8 +232,9 @@ describe("credential validation replies", () => {
             type: TYPE_AUTH_STATE,
             payload: {
               status: "awaiting",
-              mode: "paste",
-              authorizeUrl: "https://auth.picsart.com/api/oauth2/authorize?state=retold",
+              userCode: "WDJB-MJHT",
+              verificationUri: "https://accounts.picsart.com/device",
+              expiresAt: Date.now() + 300_000,
             },
           })
         );

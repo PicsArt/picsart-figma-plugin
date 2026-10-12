@@ -28,8 +28,6 @@ import {
   TYPE_GET_BALANCE,
   TYPE_EXCHANGE_REQUEST,
   TYPE_LOAD_EXCHANGE_PAGE,
-  TYPE_RANDOM_RESULT,
-  TYPE_REQUEST_RANDOM,
   TYPE_SWITCH_TAB,
   TYPE_TAB,
   TYPE_UI_READY,
@@ -39,7 +37,6 @@ import { PRICING } from "@constants/url";
 import "@styles/global.scss";
 import { getBalance, sendMessageToSandBox } from "./api";
 import { requestSignIn } from "@utils/credentialBridge";
-import { supplyRandomBytes } from "@utils/entropy";
 import {
   forwardFromExchangePage,
   isExchangePageMessage,
@@ -72,8 +69,6 @@ export const App = () => {
   const [balanceKnown, setBalanceKnown] = useState<boolean>(false);
   const isOffline = useOffline();
 
-  const [initiated, setInitiated] = useState<boolean>(false);
-  const openedRef = useRef<string | undefined>(undefined);
   const [justSignedIn, setJustSignedIn] = useState<boolean>(false);
   const previousStatus = useRef<AuthState["status"]>("idle");
 
@@ -84,32 +79,16 @@ export const App = () => {
       previousStatus.current === "working";
 
     if (wasInFlight && authState.status === "signedIn") setJustSignedIn(true);
-    if (authState.status === "idle") setInitiated(false);
 
     previousStatus.current = authState.status;
   }, [authState]);
 
-  const startSignIn = () => {
-    setInitiated(true);
-    const armed = authState.status === "armed" ? authState.authorizeUrl : undefined;
-    if (armed) {
-      openedRef.current = armed;
-      window.open(armed, "_blank", "noopener,noreferrer");
-    }
-    requestSignIn();
-  };
-
-  useEffect(() => {
-    if (!initiated) return;
-    if (authState.status !== "awaiting") return;
-    if (openedRef.current === authState.authorizeUrl) return;
-    openedRef.current = authState.authorizeUrl;
-    window.open(authState.authorizeUrl, "_blank", "noopener,noreferrer");
-  }, [initiated, authState]);
+  // The sandbox opens the verification page itself (figma.openExternal), so the
+  // click does not have to carry a URL it cannot know until the device code exists.
+  const startSignIn = () => requestSignIn();
 
   const leaveSignIn = (destination: TabType = tab) => {
     setJustSignedIn(false);
-    setInitiated(false);
     sendMessageToSandBox(true, "", TYPE_SWITCH_TAB, undefined, { tab: destination });
   };
 
@@ -194,15 +173,6 @@ export const App = () => {
         setIsActive(() => true);
         setBalanceKnown(false);
         sendMessageToSandBox(true, "", TYPE_GET_BALANCE);
-      }
-      else if (type === TYPE_REQUEST_RANDOM) {
-        const { requestId, length } = pluginMessage;
-        const { bytes, reason } = supplyRandomBytes(length);
-        sendMessageToSandBox(true, "", TYPE_RANDOM_RESULT, undefined, {
-          requestId,
-          bytes,
-          reason,
-        });
       }
       else if (type === TYPE_LOAD_EXCHANGE_PAGE) {
         loadExchangePage(String(pluginMessage.url));

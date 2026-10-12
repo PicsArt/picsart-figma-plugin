@@ -1,10 +1,5 @@
 import { vi } from "vitest";
-import {
-  TYPE_EXCHANGE_REQUEST,
-  TYPE_EXCHANGE_RESULT,
-  TYPE_RANDOM_RESULT,
-  TYPE_REQUEST_RANDOM,
-} from "../../constants/index";
+import { TYPE_EXCHANGE_REQUEST, TYPE_EXCHANGE_RESULT } from "../../constants/index";
 
 /**
  * A PluginAPI stub covering only the members the functions under test touch.
@@ -112,15 +107,22 @@ export interface ExchangeRequest {
   type: string;
   nonce?: number;
   grant?: string;
-  code?: string;
-  verifier?: string;
+  device_code?: string;
+  scope?: string;
   refresh_token?: string;
+  client_id?: string;
   [key: string]: unknown;
 }
 
 export type ExchangeStubReply =
   | { ok: true; body: Record<string, unknown> }
-  | { ok: false; error: string; status?: number; throttled?: boolean }
+  | {
+      ok: false;
+      error: string;
+      status?: number;
+      throttled?: boolean;
+      oauth_error?: string;
+    }
   | "silent";
 
 export interface FigmaStub {
@@ -135,6 +137,8 @@ export interface FigmaStub {
   byId: Map<string, StubNode>;
   clientStorage: Map<string, unknown>;
   showUiCalls: unknown[];
+  /** Every URL handed to figma.openExternal. */
+  opened: string[];
   closed: boolean;
 }
 
@@ -153,7 +157,6 @@ export const makeFigmaStub = (options: {
   clientStorage?: Record<string, unknown>;
   storageFails?: { get?: boolean; set?: boolean; delete?: boolean };
   command?: string;
-  entropy?: "bytes" | "no-crypto" | "silent";
   exchange?: ExchangeStubReply | ((msg: ExchangeRequest) => ExchangeStubReply);
 } = {}): FigmaStub => {
   const selection = options.selection ?? [];
@@ -177,6 +180,7 @@ export const makeFigmaStub = (options: {
     Object.entries(options.clientStorage ?? {})
   );
   const showUiCalls: unknown[] = [];
+  const opened: string[] = [];
   const stub = { closed: false };
 
   const currentPage = {
@@ -187,14 +191,6 @@ export const makeFigmaStub = (options: {
       child.parent = null;
     },
     findOne: (pred: (n: StubNode) => boolean) => pageChildren.find(pred) ?? null,
-  };
-
-  let entropyCounter = 0;
-  const stubBytes = (length: number) => {
-    const bytes = new Uint8Array(length);
-    for (let i = 0; i < length; i++) bytes[i] = (entropyCounter * 31 + i * 7 + 13) & 0xff;
-    entropyCounter++;
-    return bytes;
   };
 
   const answerExchange = (msg: ExchangeRequest) => {
@@ -211,29 +207,14 @@ export const makeFigmaStub = (options: {
       nonce: msg.nonce,
       ...(mode.ok
         ? { ok: true, ...mode.body }
-        : { ok: false, error: mode.error, status: mode.status, throttled: mode.throttled }),
-    });
-  };
-
-  const answerEntropy = (msg: { type: string; [key: string]: unknown }) => {
-    const mode = options.entropy ?? "bytes";
-    if (mode === "silent") return;
-    const handler = api.ui.onmessage as ((m: unknown) => unknown) | undefined;
-    if (typeof handler !== "function") return;
-    handler(
-      mode === "no-crypto"
-        ? {
-            type: TYPE_RANDOM_RESULT,
-            requestId: msg.requestId,
-            bytes: null,
-            reason: "no-crypto",
-          }
         : {
-            type: TYPE_RANDOM_RESULT,
-            requestId: msg.requestId,
-            bytes: stubBytes(Number(msg.length) || 32),
-          }
-    );
+            ok: false,
+            error: mode.error,
+            status: mode.status,
+            throttled: mode.throttled,
+            oauth_error: mode.oauth_error,
+          }),
+    });
   };
 
   const api = {
@@ -249,12 +230,12 @@ export const makeFigmaStub = (options: {
     ui: {
       postMessage: (msg: { type: string; [key: string]: unknown }) => {
         posted.push(msg);
-        if (msg?.type === TYPE_REQUEST_RANDOM) answerEntropy(msg);
         if (msg?.type === TYPE_EXCHANGE_REQUEST) answerExchange(msg);
       },
       resize: () => undefined,
     },
     showUI: (...args: unknown[]) => showUiCalls.push(args),
+    openExternal: (url: string) => opened.push(url),
     closePlugin: () => {
       stub.closed = true;
     },
@@ -311,6 +292,7 @@ export const makeFigmaStub = (options: {
     byId,
     clientStorage,
     showUiCalls,
+    opened,
     get closed() {
       return stub.closed;
     },

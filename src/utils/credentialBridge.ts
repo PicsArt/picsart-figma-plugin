@@ -1,6 +1,5 @@
 import { sendMessageToSandBox } from "@api/index";
 import {
-  TYPE_AUTH_RESPONSE,
   TYPE_CANCEL_SIGN_IN,
   TYPE_CREDENTIAL,
   TYPE_REFRESH_CREDENTIAL,
@@ -11,9 +10,6 @@ import type { CredentialMessage } from "@app-types/auth";
 import type { CredentialDescriptor } from "@app-types/credential";
 
 export const requestSignIn = () => sendMessageToSandBox(true, "", TYPE_SIGN_IN);
-
-export const submitAuthResponse = (raw: string) =>
-  sendMessageToSandBox(true, raw, TYPE_AUTH_RESPONSE);
 
 export const cancelSignIn = () => sendMessageToSandBox(true, "", TYPE_CANCEL_SIGN_IN);
 
