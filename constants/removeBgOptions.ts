@@ -32,6 +32,7 @@ export const REMOVEBG_MODEL_OPTIONS: SelectOption[] = [
   { label: "SOD 10", value: "urn:air:picsart:model:picsart:sod@10" },
   { label: "SOD 10.1", value: "urn:air:picsart:model:picsart:sod@10.1" },
   { label: "SOD 11", value: "urn:air:picsart:model:picsart:sod@11" },
+  { label: "SOD 11.2", value: "urn:air:picsart:model:picsart:sod@11.2" },
 ];
 export const DEFAULT_REMOVEBG_MODEL = "" as const;
 
